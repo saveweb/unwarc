@@ -1,0 +1,146 @@
+package unwarc
+
+import (
+	"errors"
+	"io"
+	"os"
+	"testing"
+)
+
+const realWARCPathEnv = "UNWARC_BENCH_WARC"
+
+var realWARCBenchmarkSink struct {
+	records int
+	bytes   int64
+}
+
+func BenchmarkRealWARC(b *testing.B) {
+	path := os.Getenv(realWARCPathEnv)
+	if path == "" {
+		b.Skipf("set %s=/path/to/input.warc[.gz|.zst|.bz2|.xz] to run", realWARCPathEnv)
+	}
+
+	b.Run("stream_payload", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			records, bytes := benchmarkStreamPayload(b, path)
+			reportRealWARCStats(b, records, bytes)
+		}
+	})
+	b.Run("source_stream_payload", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			records, bytes := benchmarkSourceStreamPayload(b, path)
+			reportRealWARCStats(b, records, bytes)
+		}
+	})
+	b.Run("source_scan_then_lazy_reopen_payload", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			records, bytes := benchmarkSourceScanThenLazyReopenPayload(b, path)
+			reportRealWARCStats(b, records, bytes)
+		}
+	})
+}
+
+func benchmarkStreamPayload(tb testing.TB, path string) (int, int64) {
+	tb.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	defer f.Close()
+
+	scanner, err := NewScanner(f, ScannerOptions{
+		Compression: CompressionUnknown,
+		Strict:      true,
+	})
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return drainPayloads(tb, scanner)
+}
+
+func benchmarkSourceStreamPayload(tb testing.TB, path string) (int, int64) {
+	tb.Helper()
+	scanner, err := NewScannerFromSource(NewFileSource(path), ScannerOptions{
+		Compression: CompressionUnknown,
+		Strict:      true,
+	})
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return drainPayloads(tb, scanner)
+}
+
+func benchmarkSourceScanThenLazyReopenPayload(tb testing.TB, path string) (int, int64) {
+	tb.Helper()
+	scanner, err := NewScannerFromSource(NewFileSource(path), ScannerOptions{
+		Compression: CompressionUnknown,
+		Strict:      true,
+	})
+	if err != nil {
+		tb.Fatal(err)
+	}
+	defer scanner.Close()
+
+	var records int
+	var bytes int64
+	for scanner.Next() {
+		ref := scanner.RecordRef()
+		payload, err := ref.OpenPayload()
+		if err != nil {
+			tb.Fatal(err)
+		}
+		n, err := io.Copy(io.Discard, payload)
+		closeErr := payload.Close()
+		if err != nil {
+			tb.Fatal(err)
+		}
+		if closeErr != nil {
+			tb.Fatal(closeErr)
+		}
+		records++
+		bytes += n
+	}
+	if err := scanner.Err(); err != nil {
+		tb.Fatal(err)
+	}
+	return records, bytes
+}
+
+func drainPayloads(tb testing.TB, scanner *Scanner) (int, int64) {
+	tb.Helper()
+	defer scanner.Close()
+
+	var records int
+	var bytes int64
+	for {
+		_, payload, err := scanner.NextPayload()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			tb.Fatal(err)
+		}
+		n, err := io.Copy(io.Discard, payload)
+		closeErr := payload.Close()
+		if err != nil {
+			tb.Fatal(err)
+		}
+		if closeErr != nil {
+			tb.Fatal(closeErr)
+		}
+		records++
+		bytes += n
+	}
+	if err := scanner.Err(); err != nil {
+		tb.Fatal(err)
+	}
+	return records, bytes
+}
+
+func reportRealWARCStats(b *testing.B, records int, bytes int64) {
+	b.Helper()
+	realWARCBenchmarkSink.records = records
+	realWARCBenchmarkSink.bytes = bytes
+	b.ReportMetric(float64(records), "records")
+	b.ReportMetric(float64(bytes), "payload_bytes")
+}

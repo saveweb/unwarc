@@ -1,0 +1,18 @@
+# Local WARC corpora and generated variants. Keep committed fixtures under
+# testdata/corpus small and intentional.
+/*.warc
+/*.warc.*
+/*.wacz
+/*.wacz.*
+
+# Local debug commands and compiled test binaries.
+/cmd/main/
+*.test
+
+# Test, coverage, and profiling output.
+coverage.out
+*.cover
+*.prof
+
+# OS/editor noise.
+.DS_Store
