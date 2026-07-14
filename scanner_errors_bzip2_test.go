@@ -32,6 +32,11 @@ func TestScannerContentLengthSemantics(t *testing.T) {
 			wantErr:    ErrInvalidContentLength,
 		},
 		{
+			name:       "duplicate",
+			headerLine: "Content-Length: 0\r\nContent-Length: 0\r\n",
+			wantErr:    ErrDuplicateContentLength,
+		},
+		{
 			name:        "zero",
 			headerLine:  "Content-Length: 0\r\n",
 			wantRecord:  true,

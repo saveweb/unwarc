@@ -21,6 +21,10 @@ var (
 	// ErrInvalidContentLength reports a negative or unparsable Content-Length.
 	ErrInvalidContentLength = errors.New("invalid Content-Length")
 
+	// ErrDuplicateContentLength reports multiple Content-Length fields in a WARC
+	// record.
+	ErrDuplicateContentLength = errors.New("duplicate Content-Length")
+
 	// ErrFoldedWARCField reports a folded WARC named field when the configured
 	// folded-field policy rejects continuations.
 	ErrFoldedWARCField = errors.New("folded WARC field")

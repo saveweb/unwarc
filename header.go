@@ -35,6 +35,9 @@ func parseRecordHeaderWithOptions(raw []byte, foldedFields FoldedFieldPolicy) (R
 	var contentLength int64 = -1
 	for _, field := range h.Fields {
 		if equalFieldName(field.Name, "Content-Length") {
+			if contentLength >= 0 {
+				return h, -1, ErrDuplicateContentLength
+			}
 			n, err := strconv.ParseInt(field.Value, 10, 64)
 			if err != nil || n < 0 {
 				return h, -1, ErrInvalidContentLength
