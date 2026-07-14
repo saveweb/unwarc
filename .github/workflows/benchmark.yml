@@ -46,11 +46,6 @@ jobs:
             benchmark-name: unwarc corpus benchmark native macos
             go-test-tags: unwarc_libz unwarc_libzstd
             native: true
-          - os: windows-latest
-            backend: native-windows
-            benchmark-name: unwarc corpus benchmark native windows
-            go-test-tags: unwarc_libz unwarc_libzstd
-            native: true
     permissions:
       contents: read
     steps:
@@ -62,25 +57,6 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-
-      - name: Set up MSYS2 native libraries
-        if: matrix.native && runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          path-type: inherit
-          install: >-
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-pkgconf
-            mingw-w64-ucrt-x86_64-zlib
-            mingw-w64-ucrt-x86_64-zstd
-
-      - name: Configure Windows native environment
-        if: matrix.native && runner.os == 'Windows'
-        shell: bash
-        run: |
-          echo "PKG_CONFIG=pkgconf" >> "$GITHUB_ENV"
-          pkgconf --version
 
       - name: Install Linux native libraries
         if: matrix.native && runner.os == 'Linux'
@@ -163,8 +139,6 @@ jobs:
             benchmark-name: unwarc corpus benchmark native linux
           - backend: native-macos
             benchmark-name: unwarc corpus benchmark native macos
-          - backend: native-windows
-            benchmark-name: unwarc corpus benchmark native windows
     permissions:
       contents: write
       deployments: write
