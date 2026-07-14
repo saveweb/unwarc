@@ -502,6 +502,40 @@ UNWARC_CORPUS_PATHS="/path/a.warc.gz:/path/b.warc.zst" go test -run TestExternal
 UNWARC_CORPUS_LIMIT=10 UNWARC_CORPUS_RECORD_LIMIT=25 UNWARC_CORPUS_DIR=/path/to/warcs go test -run TestExternalCorpusSmoke ./...
 ```
 
+## Corpus Benchmarks
+
+The checked-in corpus benchmark is intended for long-term regression tracking
+without external files:
+
+```bash
+make bench-corpus
+```
+
+It runs stream block access, source-backed stream block access, and
+source-backed scan-then-lazy-reopen block access over small gzip and zstd
+fixtures, including dictionary and no-Frame_Content_Size zstd cases. Use the
+larger real corpus benchmark below when you need absolute throughput numbers on
+production-sized inputs.
+
+The `Benchmark` GitHub Actions workflow runs the same corpus benchmark on pull
+requests, pushes to `main`, and manual dispatch. Both pure Go and native
+gzip/zstd benchmarks run on Linux, macOS, and Windows. Linux installs zlib and
+libzstd from apt, macOS installs them with Homebrew, and Windows uses MSYS2
+UCRT64 packages. Pushes to `main` publish benchmark history to the `gh-pages`
+branch under `dev/bench/*`; pull requests leave job summaries without updating
+history.
+
+This repository serves the benchmark dashboard from the `gh-pages` branch. For
+a fork or a fresh repository, initialize that branch once and configure GitHub
+Pages to serve it:
+
+```bash
+git switch --orphan gh-pages
+git commit --allow-empty -m "Initialize benchmark pages"
+git push origin gh-pages:gh-pages
+git switch -
+```
+
 ## Real Corpus Benchmarks
 
 Benchmarks for large local corpora are gated by an environment variable:

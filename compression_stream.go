@@ -125,6 +125,7 @@ func (s *wholeCompressionStream) Sync() error                       { return nil
 type gzipCompressionStream struct {
 	cr        *countingReader
 	gz        *gzip.Reader
+	native    *nativeGzipReader
 	current   *compressionUnit
 	completed []compressionUnit
 	uncomp    int64
@@ -140,7 +141,20 @@ func (s *gzipCompressionStream) startMember() error {
 		return io.EOF
 	}
 	off := s.cr.Tell()
-	gz, err := gzip.NewReader(s.cr)
+	var err error
+	if native, ok, nerr := newNativeGzipReader(s.cr); ok {
+		if nerr == nil {
+			s.native = native
+		}
+		err = nerr
+	} else {
+		gz, gerr := gzip.NewReader(s.cr)
+		if gerr == nil {
+			gz.Multistream(false)
+			s.gz = gz
+		}
+		err = gerr
+	}
 	if err == io.EOF {
 		s.eof = true
 		return io.EOF
@@ -148,8 +162,6 @@ func (s *gzipCompressionStream) startMember() error {
 	if err != nil {
 		return err
 	}
-	gz.Multistream(false)
-	s.gz = gz
 	s.current = &compressionUnit{
 		Kind:              compressionUnitGzipMember,
 		Comp:              Range{Off: off, Size: -1},
@@ -160,28 +172,34 @@ func (s *gzipCompressionStream) startMember() error {
 }
 
 func (s *gzipCompressionStream) finishMember() error {
+	if s.native != nil {
+		if err := s.native.Close(); err != nil {
+			return err
+		}
+		s.native = nil
+	}
 	if s.gz != nil {
 		if err := s.gz.Close(); err != nil {
 			return err
 		}
+		s.gz = nil
 	}
 	if s.current != nil {
 		s.current.Comp.Size = s.cr.Tell() - s.current.Comp.Off
 		s.completed = append(s.completed, *s.current)
 		s.current = nil
 	}
-	s.gz = nil
 	return nil
 }
 
 func (s *gzipCompressionStream) Read(p []byte) (int, error) {
 	for {
-		if s.gz == nil {
+		if s.current == nil {
 			if err := s.startMember(); err != nil {
 				return 0, err
 			}
 		}
-		n, err := s.gz.Read(p)
+		n, err := s.readCompressed(p)
 		if n > 0 {
 			s.uncomp += int64(n)
 			s.current.Uncomp.Size += int64(n)
@@ -199,6 +217,27 @@ func (s *gzipCompressionStream) Read(p []byte) (int, error) {
 	}
 }
 
+func (s *gzipCompressionStream) readCompressed(p []byte) (int, error) {
+	if s.native != nil {
+		return s.native.Read(p)
+	}
+	return s.gz.Read(p)
+}
+
+func (s *gzipCompressionStream) Close() error {
+	if s.native != nil {
+		err := s.native.Close()
+		s.native = nil
+		return err
+	}
+	if s.gz != nil {
+		err := s.gz.Close()
+		s.gz = nil
+		return err
+	}
+	return nil
+}
+
 func (s *gzipCompressionStream) Compression() Compression          { return CompressionGzip }
 func (s *gzipCompressionStream) CompletedUnits() []compressionUnit { return s.completed }
 func (s *gzipCompressionStream) CurrentUnit() *compressionUnit     { return s.current }
@@ -213,6 +252,7 @@ type zstdCompressionStream struct {
 	decoder              *zstd.Decoder
 	streamDecoder        *zstd.Decoder
 	streaming            bool
+	nativeDecoder        *nativeZstdDecoder
 	current              *compressionUnit
 	completed            []compressionUnit
 	uncomp               int64
@@ -284,7 +324,7 @@ func (s *zstdCompressionStream) startFrame() error {
 				return s.startStreamingFrame(fr, s.compressed)
 			}
 			s.pendingComp = s.cr.Tell() - off
-			s.pending, err = s.decodeFrame(s.compressed)
+			s.pending, err = s.decodeFrame(s.compressed, meta)
 			if err != nil {
 				s.current = nil
 				s.pending = nil
@@ -434,7 +474,25 @@ func (s *zstdCompressionStream) startStreamingFrame(fr *zstdFrameCompressedReade
 	return nil
 }
 
-func (s *zstdCompressionStream) decodeFrame(frame []byte) ([]byte, error) {
+func (s *zstdCompressionStream) decodeFrame(frame []byte, meta zstdFrameMetadata) ([]byte, error) {
+	useNative := len(s.dicts) == 0 && meta.HasFrameContentSize
+	if s.nativeDecoder == nil && useNative {
+		decoder, ok, err := newNativeZstdDecoder()
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			s.nativeDecoder = decoder
+		}
+	}
+	if s.nativeDecoder != nil && useNative {
+		decoded, err := s.nativeDecoder.Decode(frame, s.decoded[:0], meta.FrameContentSize)
+		if err != nil {
+			return nil, err
+		}
+		s.decoded = decoded
+		return s.decoded, nil
+	}
 	if s.decoder == nil {
 		dec, err := newZstdDecoder(nil, s.dicts)
 		if err != nil {
@@ -498,6 +556,10 @@ func (s *zstdCompressionStream) Close() error {
 	if s.streamDecoder != nil {
 		s.streamDecoder.Close()
 		s.streamDecoder = nil
+	}
+	if s.nativeDecoder != nil {
+		s.nativeDecoder.Close()
+		s.nativeDecoder = nil
 	}
 	s.streaming = false
 	s.current = nil
