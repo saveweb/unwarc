@@ -100,8 +100,6 @@ func (r *RecordRef) finalize(resolution recordResolution) {
 // record bytes, including the WARC record header, record block, and trailer.
 // The second result is false while the record is pending or when the record
 // cannot be reopened from a random-access source.
-//
-// cost for OpenRaw()
 func (r *RecordRef) RawDecodeCost() (DecodeCost, bool) {
 	if !r.Finalized() {
 		return DecodeCost{}, false
@@ -113,8 +111,6 @@ func (r *RecordRef) RawDecodeCost() (DecodeCost, bool) {
 // declared by Content-Length.
 // The second result is false while the record is pending or when the block
 // cannot be reopened from a random-access source.
-//
-// cost for OpenBlock()
 func (r *RecordRef) BlockDecodeCost() (DecodeCost, bool) {
 	if !r.Finalized() || r.rawPlan == nil {
 		return DecodeCost{}, false
@@ -126,8 +122,6 @@ func (r *RecordRef) BlockDecodeCost() (DecodeCost, bool) {
 // the WARC record block.
 // The second result is false while the record is pending or when the range
 // cannot be reopened from a random-access source.
-//
-// cost for OpenBlockRange(off, n)
 func (r *RecordRef) BlockRangeDecodeCost(off, size int64) (DecodeCost, bool, error) {
 	if off < 0 || size < 0 {
 		return DecodeCost{}, false, fmt.Errorf("invalid block range off=%d size=%d", off, size)
@@ -187,14 +181,14 @@ func (r *RecordRef) openDecodePlan(plan *decodePlan) (io.ReadCloser, error) {
 	if plan == nil {
 		return nil, fmt.Errorf("record is not lazy-loadable: %s", r.location.Access)
 	}
-	if r.decode == nil || r.decode.source == nil {
-		return nil, fmt.Errorf("record has no random access source")
-	}
 	if !plan.decoded.Valid() {
 		return nil, fmt.Errorf("invalid decoded range: %+v", plan.decoded)
 	}
 	if plan.decoded.Size == 0 {
 		return io.NopCloser(bytes.NewReader(nil)), nil
+	}
+	if r.decode == nil || r.decode.source == nil {
+		return nil, fmt.Errorf("record has no random access source")
 	}
 
 	input, err := openCompressedRanges(r.decode.source, plan.compressed)

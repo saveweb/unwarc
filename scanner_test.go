@@ -513,6 +513,14 @@ func TestScannerZeroContentLengthIsValid(t *testing.T) {
 	if _, ok := ref.BlockDecodeCost(); ok {
 		t.Fatal("stream-only zero-length block unexpectedly reported lazy decode cost")
 	}
+	block, err := ref.OpenBlock()
+	if err != nil {
+		t.Fatalf("open zero-length stream-only block: %v", err)
+	}
+	if got, err := io.ReadAll(block); err != nil || len(got) != 0 {
+		t.Fatalf("read zero-length stream-only block = %q, %v", got, err)
+	}
+	closeTest(t, block)
 	if scanner.Next() {
 		t.Fatal("unexpected extra record")
 	}

@@ -195,8 +195,12 @@ type RecordLocation struct {
 type DecodeCost struct {
 	// EncodedRanges are absolute RandomAccessSource byte ranges to reopen.
 	// Ranges may be discontiguous when a record spans multiple independently
-	// compressed frames or members. A range with negative Size means decoding starts
-	// at Off and continues until enough decoded output has been produced.
+	// compressed frames or members. A range with negative Size means decoding
+	// starts at Off and continues until enough decoded output has been produced.
+	// EncodedRanges[0].Off may be passed to NewScannerAt to start directly at
+	// this record only when the corresponding RecordLocation.Access is
+	// AccessExact. For AccessFromCompressionUnitStart it starts at an earlier
+	// frame or member and DecodedDiscardBytes describes the intervening output.
 	EncodedRanges []Range
 	// DecodedDiscardBytes is the decoded byte count discarded before the
 	// returned reader starts producing bytes.
