@@ -17,13 +17,20 @@ should still be treated as evolving until a first tagged release.
 - Plain `.warc`
 - Record-at-a-time gzip `.warc.gz`
 - WARC-zstd `.warc.zst` / `.warc.zstd`, including prefix dictionary frames
-- Whole-file bzip2 `.bz2`
-- Whole-file xz `.xz`
 
-Lazy random access is strongest for plain, gzip, and zstd. bzip2 and xz are
-decoded as whole-file streams, so lazy reopening starts at the beginning of the
-file. Concatenated xz streams are not currently supported and return
-`ErrCompressionUnitAccessNotImplemented`.
+### Why Other Compression Formats Are Not Built In
+
+xz, bzip2, and LZ4 WARC files are generally compressed as one
+whole file; I have not found real-world per-record usage comparable to gzip
+or WARC-zstd.
+Clients can decompress such inputs themselves and pass the resulting
+`io.Reader` to `NewScanner`:
+
+```go
+scanner, err := unwarc.NewScanner(decompressedReader, unwarc.ScannerOptions{
+	Compression: unwarc.CompressionPlain,
+})
+```
 
 ## WARC Terminology
 
@@ -43,8 +50,8 @@ This package follows the WARC grammar's hierarchy:
   block, that includes both the HTTP header section and body.
 - The record terminator is the `CRLF CRLF` following the record block.
 - A **compression unit** is a storage-layer unit such as a gzip member, zstd
-  frame, dictionary frame, or whole-file compression stream. It is unrelated
-  to WARC logical segmentation and the `WARC-Segment-*` fields.
+  frame, or dictionary frame. It is unrelated to WARC logical segmentation and
+  the `WARC-Segment-*` fields.
 
 Record headers and `application/warc-fields` blocks therefore share named-field
 syntax, but they are not the same structure.
@@ -464,7 +471,6 @@ Sentinel errors are exported for `errors.Is`, including:
 - `ErrFoldedWARCField`
 - `ErrMissingRecordTrailer`
 - `ErrUnsupportedCompression`
-- `ErrCompressionUnitAccessNotImplemented`
 - `ErrInvalidWARCZstd`
 - `ErrRecordLocationPending`
 - `ErrNotSeekIndexed`

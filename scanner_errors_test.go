@@ -2,7 +2,6 @@ package unwarc
 
 import (
 	"bytes"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -200,86 +199,6 @@ func TestScannerRecordTrailerRequirement(t *testing.T) {
 	}
 }
 
-func TestScannerBzip2WholeStreamAccessModes(t *testing.T) {
-	rec1 := makeRecord("warcinfo", "<urn:uuid:bzip2-1>", []byte("ABC"))
-	rec2 := makeRecord("response", "<urn:uuid:bzip2-2>", []byte("DEFG"))
-	wantRanges := []Range{
-		{Off: 0, Size: int64(len(rec1))},
-		{Off: int64(len(rec1)), Size: int64(len(rec2))},
-	}
-	compressed := bzip2TwoRecordFixture(t)
-
-	t.Run("reader", func(t *testing.T) {
-		scanner, err := NewScanner(bytes.NewReader(compressed), ScannerOptions{Compression: CompressionUnknown})
-		if err != nil {
-			t.Fatal(err)
-		}
-		assertBzip2Records(t, scanner, AccessStreamOnly, wantRanges)
-	})
-
-	t.Run("source", func(t *testing.T) {
-		scanner, err := NewScannerFromSource(newBytesSource(compressed), ScannerOptions{Compression: CompressionUnknown})
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer closeTest(t, scanner)
-		refs := assertBzip2Records(t, scanner, AccessFromFileStart, wantRanges)
-		if got := readAllFrom(t, refs[0].OpenRaw); !bytes.Equal(got, rec1) {
-			t.Fatalf("first raw record = %q, want %q", got, rec1)
-		}
-		if got := readAllFrom(t, refs[1].OpenBlock); string(got) != "DEFG" {
-			t.Fatalf("second block = %q, want DEFG", got)
-		}
-	})
-}
-
-func TestScannerBzip2CompressionUnknownDetection(t *testing.T) {
-	rec1 := makeRecord("warcinfo", "<urn:uuid:bzip2-1>", []byte("ABC"))
-	rec2 := makeRecord("response", "<urn:uuid:bzip2-2>", []byte("DEFG"))
-	wantRanges := []Range{
-		{Off: 0, Size: int64(len(rec1))},
-		{Off: int64(len(rec1)), Size: int64(len(rec2))},
-	}
-	compressed := bzip2TwoRecordFixture(t)
-
-	for _, tc := range []struct {
-		name     string
-		filename string
-	}{
-		{name: "name", filename: "fixture.warc.bz2"},
-		{name: "magic", filename: "fixture.bin"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			path := writeNamedTemp(t, tc.filename, compressed)
-			scanner, err := NewScannerFromSource(NewFileSource(path), ScannerOptions{Compression: CompressionUnknown})
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer closeTest(t, scanner)
-
-			assertBzip2Records(t, scanner, AccessFromFileStart, wantRanges)
-		})
-	}
-}
-
-func TestScannerBzip2ExactDecodePlan(t *testing.T) {
-	stream := bzip2TwoRecordFixture(t)
-	want := append(
-		makeRecord("warcinfo", "<urn:uuid:bzip2-1>", []byte("ABC")),
-		makeRecord("response", "<urn:uuid:bzip2-2>", []byte("DEFG"))...,
-	)
-	ref := newResolvedTestRef(
-		newBytesSource(stream),
-		CompressionBzip2,
-		AccessExact,
-		[]Range{{Off: 0, Size: int64(len(stream))}},
-		Range{Off: 0, Size: int64(len(want))},
-	)
-	if got := readAllFrom(t, ref.OpenRaw); !bytes.Equal(got, want) {
-		t.Fatalf("OpenRaw() = %q, want %q", got, want)
-	}
-}
-
 func TestScannerUnsupportedCompressionErrors(t *testing.T) {
 	t.Run("unknown enum", func(t *testing.T) {
 		_, err := NewScanner(bytes.NewReader(nil), ScannerOptions{Compression: Compression(99)})
@@ -314,70 +233,6 @@ func TestScannerClosePropagatesSourceErrorWithoutSettingErr(t *testing.T) {
 	if err := scanner.Err(); err != nil {
 		t.Fatalf("Err() after Close() = %v, want nil", err)
 	}
-}
-
-func assertBzip2Records(t *testing.T, scanner *Scanner, wantAccess AccessMode, wantRanges []Range) []*RecordRef {
-	t.Helper()
-	var refs []*RecordRef
-	for i, wantRange := range wantRanges {
-		if !scanner.Next() {
-			t.Fatalf("record %d: %v", i+1, scanner.Err())
-		}
-		ref := scanner.RecordRef()
-		refs = append(refs, ref)
-		if ref.decode.compression != CompressionBzip2 {
-			t.Fatalf("record %d compression = %s, want %s", i+1, ref.decode.compression, CompressionBzip2)
-		}
-		if ref.location.Access != wantAccess {
-			t.Fatalf("record %d access = %s, want %s: %+v", i+1, ref.location.Access, wantAccess, ref.location)
-		}
-		if ref.location.Uncompressed != wantRange {
-			t.Fatalf("record %d uncomp range = %+v, want %+v", i+1, ref.location.Uncompressed, wantRange)
-		}
-		if !ref.finalized {
-			t.Fatalf("record %d final = false, want true", i+1)
-		}
-		if len(ref.issues) != 0 {
-			t.Fatalf("record %d issues = %+v, want none", i+1, ref.issues)
-		}
-	}
-	if scanner.Next() {
-		t.Fatal("unexpected extra record")
-	}
-	if err := scanner.Err(); err != nil {
-		t.Fatal(err)
-	}
-	return refs
-}
-
-func TestDetectBzip2Magic(t *testing.T) {
-	for _, prefix := range [][]byte{
-		[]byte("BZh1"),
-		[]byte("BZh9"),
-	} {
-		if got := detectCompressionFromPrefix(prefix); got != CompressionBzip2 {
-			t.Fatalf("%q detected as %s, want %s", prefix, got, CompressionBzip2)
-		}
-	}
-	for _, prefix := range [][]byte{
-		[]byte("BZh"),
-		[]byte("BZh0"),
-		[]byte("BZh:"),
-	} {
-		if got := detectCompressionFromPrefix(prefix); got != CompressionPlain {
-			t.Fatalf("%q detected as %s, want %s", prefix, got, CompressionPlain)
-		}
-	}
-}
-
-func bzip2TwoRecordFixture(t *testing.T) []byte {
-	t.Helper()
-	const encoded = "QlpoOTFBWSZTWTJN+jMAADlfgAASQAO8FT+kFIA/4d6wIACUCUVDynqPJPUBoGEA9T9U9QSogAGgAAAAJEIcdVMzEJ2xhFxQhRidDwNCSMkJOBMpsVERE9jiNk8ROXPATMXiyuv1hARQcI3EptFKH201Hg6j7UyDFKjjTExUUaXYgPKk2gYWE5KFTKMbx/4qfxdyRThQkDJN+jM="
-	data, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return data
 }
 
 type closeErrorSource struct {

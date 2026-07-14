@@ -2,14 +2,12 @@ package unwarc
 
 import (
 	"bytes"
-	"compress/bzip2"
 	"errors"
 	"fmt"
 	"io"
 
 	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/compress/zstd"
-	"github.com/ulikunitz/xz"
 )
 
 // RecordRef describes a scanned WARC record and how to reopen it after its
@@ -258,20 +256,6 @@ func decodeCompressed(compression Compression, rc io.ReadCloser, zstdOptions []z
 				zr.Close()
 				return rc.Close()
 			},
-		}, nil
-	case CompressionBzip2:
-		return &readCloser{
-			Reader: bzip2.NewReader(rc),
-			close:  rc.Close,
-		}, nil
-	case CompressionXZ:
-		xr, err := xz.NewReader(rc)
-		if err != nil {
-			return nil, err
-		}
-		return &readCloser{
-			Reader: xr,
-			close:  rc.Close,
 		}, nil
 	default:
 		return nil, fmt.Errorf("lazy decode unsupported for %s", compression)

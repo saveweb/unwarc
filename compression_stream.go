@@ -2,14 +2,12 @@ package unwarc
 
 import (
 	"bytes"
-	"compress/bzip2"
 	"encoding/binary"
 	"fmt"
 	"io"
 
 	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/compress/zstd"
-	"github.com/ulikunitz/xz"
 )
 
 type compressionStream interface {
@@ -35,24 +33,6 @@ func newCompressionStream(r io.Reader, compression Compression, maxBufferedZstdF
 		return newGzipCompressionStream(cr)
 	case CompressionZstd:
 		return newZstdCompressionStream(cr, maxBufferedZstdFrameSize, requirements)
-	case CompressionBzip2:
-		return &wholeCompressionStream{
-			cr:          cr,
-			reader:      bzip2.NewReader(cr),
-			compression: CompressionBzip2,
-			kind:        compressionUnitBzip2Stream,
-		}, nil
-	case CompressionXZ:
-		xr, err := xz.ReaderConfig{SingleStream: true}.NewReader(cr)
-		if err != nil {
-			return nil, err
-		}
-		return &wholeCompressionStream{
-			cr:          cr,
-			reader:      xr,
-			compression: CompressionXZ,
-			kind:        compressionUnitXZStream,
-		}, nil
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedCompression, compression)
 	}
@@ -74,53 +54,6 @@ func (s *plainCompressionStream) CompletedUnits() []compressionUnit { return nil
 func (s *plainCompressionStream) CurrentUnit() *compressionUnit     { return nil }
 func (s *plainCompressionStream) UncompOffset() int64               { return s.uncomp }
 func (s *plainCompressionStream) Sync() error                       { return nil }
-
-type wholeCompressionStream struct {
-	cr          *countingReader
-	reader      io.Reader
-	compression Compression
-	kind        compressionUnitKind
-	current     *compressionUnit
-	completed   []compressionUnit
-	uncomp      int64
-	started     bool
-}
-
-func (s *wholeCompressionStream) Read(p []byte) (int, error) {
-	if !s.started {
-		s.started = true
-		s.current = &compressionUnit{
-			Kind:              s.kind,
-			Comp:              Range{Off: 0, Size: -1},
-			Uncomp:            Range{Off: s.uncomp, Size: 0},
-			ProducesWARCBytes: true,
-		}
-	}
-	n, err := s.reader.Read(p)
-	if n > 0 {
-		s.uncomp += int64(n)
-		s.current.Uncomp.Size += int64(n)
-	}
-	if s.compression == CompressionXZ && isXZUnexpectedData(err) {
-		err = fmt.Errorf("%w: %s", ErrCompressionUnitAccessNotImplemented, s.compression)
-	}
-	if err == io.EOF && s.current != nil {
-		s.current.Comp.Size = s.cr.Tell() - s.current.Comp.Off
-		s.completed = append(s.completed, *s.current)
-		s.current = nil
-	}
-	return n, err
-}
-
-func isXZUnexpectedData(err error) bool {
-	return err != nil && err.Error() == "xz: unexpected data after stream"
-}
-
-func (s *wholeCompressionStream) Compression() Compression          { return s.compression }
-func (s *wholeCompressionStream) CompletedUnits() []compressionUnit { return s.completed }
-func (s *wholeCompressionStream) CurrentUnit() *compressionUnit     { return s.current }
-func (s *wholeCompressionStream) UncompOffset() int64               { return s.uncomp }
-func (s *wholeCompressionStream) Sync() error                       { return nil }
 
 type gzipCompressionStream struct {
 	cr        *countingReader

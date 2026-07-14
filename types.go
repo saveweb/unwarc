@@ -36,10 +36,6 @@ const (
 	CompressionGzip
 	// CompressionZstd is a WARC-zstd stream.
 	CompressionZstd
-	// CompressionXZ is an xz-compressed WARC stream.
-	CompressionXZ
-	// CompressionBzip2 is a bzip2-compressed WARC stream.
-	CompressionBzip2
 	// CompressionUnknown asks the scanner to detect compression when possible.
 	CompressionUnknown
 )
@@ -52,10 +48,6 @@ func (c Compression) String() string {
 		return "gzip"
 	case CompressionZstd:
 		return "zstd"
-	case CompressionXZ:
-		return "xz"
-	case CompressionBzip2:
-		return "bzip2"
 	default:
 		return "unknown"
 	}
@@ -69,8 +61,6 @@ const (
 	compressionUnitZstdFrame
 	compressionUnitZstdDict
 	compressionUnitZstdSkippable
-	compressionUnitXZStream
-	compressionUnitBzip2Stream
 )
 
 func (k compressionUnitKind) String() string {
@@ -85,10 +75,6 @@ func (k compressionUnitKind) String() string {
 		return "zstd-dict"
 	case compressionUnitZstdSkippable:
 		return "zstd-skippable"
-	case compressionUnitXZStream:
-		return "xz-stream"
-	case compressionUnitBzip2Stream:
-		return "bzip2-stream"
 	default:
 		return fmt.Sprintf("compression-unit-kind-%d", int(k))
 	}
@@ -119,8 +105,6 @@ const (
 	// AccessFromCompressionUnitStart means lazy reads restart at a compression
 	// unit boundary and discard preceding uncompressed bytes.
 	AccessFromCompressionUnitStart
-	// AccessFromFileStart means lazy reads restart at the beginning of the file.
-	AccessFromFileStart
 	// AccessStreamOnly means the record was found but cannot be lazily reopened.
 	AccessStreamOnly
 )
@@ -133,8 +117,6 @@ func (m AccessMode) String() string {
 		return "exact"
 	case AccessFromCompressionUnitStart:
 		return "from-compression-unit-start"
-	case AccessFromFileStart:
-		return "from-file-start"
 	case AccessStreamOnly:
 		return "stream-only"
 	default:

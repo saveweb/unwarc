@@ -18,7 +18,7 @@ var realWARCBenchmarkSink struct {
 func BenchmarkRealWARC(b *testing.B) {
 	path := os.Getenv(realWARCPathEnv)
 	if path == "" {
-		b.Skipf("set %s=/path/to/input.warc[.gz|.zst|.bz2|.xz] to run", realWARCPathEnv)
+		b.Skipf("set %s=/path/to/input.warc[.gz|.zst] to run", realWARCPathEnv)
 	}
 
 	b.Run("stream_block", func(b *testing.B) {

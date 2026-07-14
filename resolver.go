@@ -24,17 +24,6 @@ func (s *Scanner) resolveRecord(record Range) recordResolution {
 	switch s.stream.Compression() {
 	case CompressionGzip, CompressionZstd:
 		return s.resolveCompressionUnitRecord(resolution, record)
-	case CompressionBzip2, CompressionXZ:
-		if s.source == nil {
-			resolution.location.Access = AccessStreamOnly
-			return resolution
-		}
-		resolution.location.Access = AccessFromFileStart
-		resolution.raw = newDecodePlan(
-			[]Range{{Off: 0, Size: -1}},
-			Range{Off: record.Off, Size: record.Size},
-		)
-		return resolution
 	default:
 		resolution.issues = append(resolution.issues, Issue{
 			Code:    IssueUnsupportedCompression,

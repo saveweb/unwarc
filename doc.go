@@ -1,7 +1,7 @@
 // Package unwarc scans WARC files and returns lightweight record references.
 //
-// The scanner supports uncompressed WARC, record-at-a-time gzip, WARC-zstd
-// including prefix dictionary frames, and whole-file bzip2/xz streams. When a
+// The scanner supports uncompressed WARC, record-at-a-time gzip, and WARC-zstd
+// including prefix dictionary frames. When a
 // random-access source is provided, finalized record references can lazily
 // reopen raw records or record-block bytes without materializing the whole input.
 // Scanner.NextRecord returns a RecordReader for one-pass in-order processing.

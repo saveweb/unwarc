@@ -12,7 +12,7 @@ import (
 // ScannerOptions configures stream decompression and validation.
 type ScannerOptions struct {
 	// Compression selects the input envelope. Use CompressionUnknown to detect
-	// gzip, zstd, bzip2, xz, or plain input from the stream or source name.
+	// gzip, zstd, or plain input from the stream or source name.
 	Compression Compression
 
 	// RequireRecordTrailer makes a missing, partial, or invalid WARC record
@@ -507,10 +507,6 @@ func detectCompressionFromName(source RandomAccessSource) Compression {
 		case strings.HasSuffix(path, ".warc.zst") || strings.HasSuffix(path, ".zst") ||
 			strings.HasSuffix(path, ".warc.zstd") || strings.HasSuffix(path, ".zstd"):
 			return CompressionZstd
-		case strings.HasSuffix(path, ".bz2"):
-			return CompressionBzip2
-		case strings.HasSuffix(path, ".xz"):
-			return CompressionXZ
 		}
 	}
 	return CompressionUnknown
@@ -537,12 +533,6 @@ func detectCompressionFromPrefix(prefix []byte) Compression {
 		case zstdFrameMagic, zstdDictFrameMagic:
 			return CompressionZstd
 		}
-	}
-	if len(prefix) >= 4 && prefix[0] == 'B' && prefix[1] == 'Z' && prefix[2] == 'h' && prefix[3] >= '1' && prefix[3] <= '9' {
-		return CompressionBzip2
-	}
-	if len(prefix) >= 6 && bytes.Equal(prefix[:6], []byte{0xFD, '7', 'z', 'X', 'Z', 0x00}) {
-		return CompressionXZ
 	}
 	return CompressionPlain
 }

@@ -406,7 +406,7 @@ func isExternalCorpusFile(path string) bool {
 	if strings.HasSuffix(path, ".open") {
 		return false
 	}
-	for _, suffix := range []string{".warc", ".warc.gz", ".warc.zst", ".warc.zstd", ".warc.bz2", ".warc.xz"} {
+	for _, suffix := range []string{".warc", ".warc.gz", ".warc.zst", ".warc.zstd"} {
 		if strings.HasSuffix(path, suffix) {
 			return true
 		}

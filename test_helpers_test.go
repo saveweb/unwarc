@@ -106,10 +106,6 @@ func TestDetectCompressionFromName(t *testing.T) {
 		{name: "zstd zst", path: "fixture.warc.zst", want: CompressionZstd},
 		{name: "zstd long extension", path: "fixture.warc.zstd", want: CompressionZstd},
 		{name: "zstd uppercase", path: "FIXTURE.ZST", want: CompressionZstd},
-		{name: "bzip2", path: "fixture.warc.bz2", want: CompressionBzip2},
-		{name: "bzip2 uppercase", path: "FIXTURE.BZ2", want: CompressionBzip2},
-		{name: "xz", path: "fixture.warc.xz", want: CompressionXZ},
-		{name: "xz uppercase", path: "FIXTURE.XZ", want: CompressionXZ},
 		{name: "unknown", path: "fixture.warc", want: CompressionUnknown},
 	}
 
