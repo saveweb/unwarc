@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784060824385,
+  "lastUpdate": 1784067454224,
   "repoUrl": "https://github.com/saveweb/unwarc",
   "entries": {
     "unwarc corpus benchmark purego windows throughput": [
@@ -114,6 +114,120 @@ window.BENCHMARK_DATA = {
             "value": 18.25,
             "unit": "MB/s",
             "extra": "median of 5 runs; min=17.59; max=19.1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yzqzss@saveweb.org",
+            "name": "yzqzss",
+            "username": "yzqzss"
+          },
+          "committer": {
+            "email": "yzqzss@saveweb.org",
+            "name": "yzqzss",
+            "username": "yzqzss"
+          },
+          "distinct": true,
+          "id": "173eb8546a31f33cb42713263f39878546bf94f7",
+          "message": "Expose lazy decode cost",
+          "timestamp": "2026-07-15T00:14:09+02:00",
+          "tree_id": "266c384291abb874b5ce4d289aa1343ca6477bac",
+          "url": "https://github.com/saveweb/unwarc/commit/173eb8546a31f33cb42713263f39878546bf94f7"
+        },
+        "date": 1784067453794,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 51.46,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=50.34; max=52.04"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - MB/s",
+            "value": 96.97,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=95.12; max=98.99"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - MB/s",
+            "value": 90.09,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=80.22; max=96.7"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 6.87,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=6.71; max=7.16"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - MB/s",
+            "value": 25.82,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=25.17; max=26.67"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - MB/s",
+            "value": 25.99,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=25.84; max=26.57"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 0.06,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=0.06; max=0.07"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - MB/s",
+            "value": 0.08,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=0.07; max=0.1"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - MB/s",
+            "value": 0.08,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=0.07; max=0.08"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 0.72,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=0.71; max=0.75"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - MB/s",
+            "value": 1.42,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=1.41; max=1.6"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - MB/s",
+            "value": 1.57,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=1.48; max=1.59"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 5.46,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=5.3; max=5.5"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - MB/s",
+            "value": 22.23,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=21.89; max=22.69"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - MB/s",
+            "value": 22.51,
+            "unit": "MB/s",
+            "extra": "median of 5 runs; min=22.13; max=22.57"
           }
         ]
       }
