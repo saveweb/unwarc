@@ -66,7 +66,7 @@ func TestZstdSingleFrameMultipleRecordsLazyFromCompressionUnitStart(t *testing.T
 			t.Fatalf("record %d access = %s, want %s: %+v", i, ref.location.Access, AccessFromCompressionUnitStart, ref.location)
 		}
 		if ref.rawPlan == nil || len(ref.rawPlan.compressed) != 1 || ref.rawPlan.compressed[0].Off != 0 {
-			t.Fatalf("record %d replay plan = %+v, want frame start", i, ref.rawPlan)
+			t.Fatalf("record %d restart plan = %+v, want frame start", i, ref.rawPlan)
 		}
 		wantSkip := int64(0)
 		if i == 1 {
@@ -203,7 +203,7 @@ func TestZstdDictionaryBackedSolidFrameLazyFromCompressionUnitStart(t *testing.T
 			t.Fatalf("record %d access = %s, want %s: %+v", i, ref.location.Access, AccessFromCompressionUnitStart, ref.location)
 		}
 		if ref.rawPlan == nil || len(ref.rawPlan.compressed) != 1 || ref.rawPlan.compressed[0].Off != int64(len(dictFrame)) {
-			t.Fatalf("record %d replay plan = %+v, want data frame start", i, ref.rawPlan)
+			t.Fatalf("record %d restart plan = %+v, want data frame start", i, ref.rawPlan)
 		}
 		assertIssue(t, ref, IssueFrameContainsMultipleRecords)
 	}

@@ -8,9 +8,10 @@
 // RecordReader.Block exposes the WARC record block, and RecordReader.Ref is
 // finalized after the block reaches EOF or the record is closed.
 // Scanner.RecordRef returns only finalized references. Lazy reopening from a
-// source may re-read and re-decompress compressed bytes. The package does not
-// infer the WARC payload, which may be a record-type-specific subset of the
-// record block.
+// source may re-read and re-decompress compressed bytes. RecordRef exposes
+// decode-cost methods so callers can choose when non-exact compressed layouts
+// are acceptable. The package does not infer the WARC payload, which may be a
+// record-type-specific subset of the record block.
 //
 // WARC-zstd scanning buffers only small known-size frames. Frames without
 // Frame_Content_Size or beyond ScannerOptions.MaxBufferedZstdFrameSize are

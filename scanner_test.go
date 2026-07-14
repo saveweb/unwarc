@@ -510,6 +510,9 @@ func TestScannerZeroContentLengthIsValid(t *testing.T) {
 	if ref.location.Access != AccessStreamOnly {
 		t.Fatalf("expected stream-only access, got %+v", ref.location)
 	}
+	if _, ok := ref.BlockDecodeCost(); ok {
+		t.Fatal("stream-only zero-length block unexpectedly reported lazy decode cost")
+	}
 	if scanner.Next() {
 		t.Fatal("unexpected extra record")
 	}

@@ -2,7 +2,8 @@ package unwarc
 
 // decodePlan identifies compressed input and the desired byte range within its
 // concatenated decoded output. It can represent exact record-aligned access,
-// replay from an earlier compression-unit boundary, or replay from file start.
+// restart from an earlier compression-unit boundary, or restart from file
+// start.
 type decodePlan struct {
 	compressed []Range
 	decoded    Range
@@ -23,6 +24,20 @@ func (p *decodePlan) subrange(off, size int64) *decodePlan {
 		Off:  p.decoded.Off + off,
 		Size: size,
 	})
+}
+
+func (p *decodePlan) cost() (DecodeCost, bool) {
+	if p == nil || !p.decoded.Valid() {
+		return DecodeCost{}, false
+	}
+	if len(p.compressed) == 0 && p.decoded.Size != 0 {
+		return DecodeCost{}, false
+	}
+	return DecodeCost{
+		EncodedRanges:       append([]Range(nil), p.compressed...),
+		DecodedDiscardBytes: p.decoded.Off,
+		DecodedOutputBytes:  p.decoded.Size,
+	}, true
 }
 
 type blockIndex struct {

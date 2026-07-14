@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -51,12 +52,14 @@ func main() {
 	}
 }
 
-func readSamples(path string) ([]sample, error) {
+func readSamples(path string) (_ []sample, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		err = errors.Join(err, f.Close())
+	}()
 
 	var samples []sample
 	scanner := bufio.NewScanner(f)
@@ -137,12 +140,14 @@ func median(values []float64) float64 {
 	return (values[mid-1] + values[mid]) / 2
 }
 
-func writeResults(path string, results []result) error {
+func writeResults(path string, results []result) (err error) {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err = errors.Join(err, f.Close())
+	}()
 	encoder := json.NewEncoder(f)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(results)

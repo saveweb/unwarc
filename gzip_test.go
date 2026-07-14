@@ -220,7 +220,7 @@ func TestGzipSolidMemberAccessModes(t *testing.T) {
 				t.Fatalf("expected restart access, got %+v", ref.location)
 			}
 			if ref.rawPlan == nil || len(ref.rawPlan.compressed) != 1 || ref.rawPlan.compressed[0].Off != 0 {
-				t.Fatalf("unexpected replay plan: %+v", ref.rawPlan)
+				t.Fatalf("unexpected restart plan: %+v", ref.rawPlan)
 			}
 			assertIssue(t, ref, IssueSolidGzipMember)
 		}
@@ -260,7 +260,7 @@ func TestGzipDecodePlanSkipsFromCompressionUnitStart(t *testing.T) {
 			t.Fatalf("record %d access = %s, want %s: %+v", i+1, ref.location.Access, AccessFromCompressionUnitStart, ref.location)
 		}
 		if ref.rawPlan == nil || len(ref.rawPlan.compressed) != 1 || ref.rawPlan.compressed[0].Off != int64(len(member1)) {
-			t.Fatalf("record %d replay plan = %+v, want second gzip member", i+1, ref.rawPlan)
+			t.Fatalf("record %d restart plan = %+v, want second gzip member", i+1, ref.rawPlan)
 		}
 		wantSkip := int64(0)
 		if i == 1 {
@@ -275,6 +275,35 @@ func TestGzipDecodePlanSkipsFromCompressionUnitStart(t *testing.T) {
 	got := readAllFrom(t, refs[2].OpenBlock)
 	if !bytes.Equal(got, block3) {
 		t.Fatalf("third block = %q, want %q", got, block3)
+	}
+}
+
+func TestGzipSolidMemberEmptyBlockDecodeCost(t *testing.T) {
+	record1 := makeRecord("warcinfo", "<urn:uuid:gzip-empty-policy-1>", []byte("first"))
+	record2 := makeRecord("response", "<urn:uuid:gzip-empty-policy-2>", nil)
+	stream := gzipMember(t, append(append([]byte{}, record1...), record2...))
+	refs := scanSourceRefs(t, newBytesSource(stream), CompressionGzip)
+	if len(refs) != 2 {
+		t.Fatalf("records = %d, want 2", len(refs))
+	}
+	ref := refs[1]
+	if ref.location.Access != AccessFromCompressionUnitStart {
+		t.Fatalf("access = %s, want %s", ref.location.Access, AccessFromCompressionUnitStart)
+	}
+	cost, ok := ref.BlockDecodeCost()
+	if !ok {
+		t.Fatal("block decode cost is unavailable")
+	}
+	if len(cost.EncodedRanges) != 0 || cost.DecodedDiscardBytes != 0 || cost.DecodedOutputBytes != 0 {
+		t.Fatalf("empty block decode cost = %+v, want zero cost", cost)
+	}
+	if got := readAllFrom(t, ref.OpenBlock); len(got) != 0 {
+		t.Fatalf("block = %q, want empty", got)
+	}
+	if got := readAllFrom(t, func() (io.ReadCloser, error) {
+		return ref.OpenBlockRange(0, 1)
+	}); len(got) != 0 {
+		t.Fatalf("block range = %q, want empty", got)
 	}
 }
 

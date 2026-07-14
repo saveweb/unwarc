@@ -55,6 +55,10 @@ type Scanner struct {
 	opts   ScannerOptions
 	decode *recordDecodeContext
 
+	// compressedBase is the absolute source offset corresponding to compressed
+	// offset zero in stream. It is non-zero for scanners created by NewScannerAt.
+	compressedBase int64
+
 	err error
 	ref *RecordRef
 
@@ -86,6 +90,39 @@ func NewScannerFromSource(source RandomAccessSource, opts ScannerOptions) (*Scan
 	if err != nil {
 		return nil, err
 	}
+	return newScannerFromSourceReader(source, rc, 0, opts)
+}
+
+// NewScannerAt creates a scanner whose input starts at compressedOffset in
+// source. compressedOffset is an absolute byte offset in the stored input and
+// must point to a decodable compression-unit boundary: a WARC record boundary
+// for plain input, a gzip member boundary, or an independently decodable zstd
+// frame boundary.
+//
+// RecordLocation.Uncompressed values are relative to the decoded stream
+// beginning at compressedOffset and therefore restart from zero.
+// RecordRef.RawDecodeCost and related decode-cost methods continue to address
+// the original source using absolute encoded offsets. Do not pass a
+// RecordLocation.Uncompressed offset to NewScannerAt.
+func NewScannerAt(source RandomAccessSource, compressedOffset int64, opts ScannerOptions) (*Scanner, error) {
+	if compressedOffset < 0 {
+		return nil, fmt.Errorf("invalid compressed offset %d", compressedOffset)
+	}
+	size, err := source.Size()
+	if err != nil {
+		return nil, err
+	}
+	if compressedOffset > size {
+		return nil, fmt.Errorf("compressed offset %d exceeds source size %d", compressedOffset, size)
+	}
+	rc, err := source.OpenAt(compressedOffset)
+	if err != nil {
+		return nil, err
+	}
+	return newScannerFromSourceReader(source, rc, compressedOffset, opts)
+}
+
+func newScannerFromSourceReader(source RandomAccessSource, rc io.ReadCloser, compressedBase int64, opts ScannerOptions) (*Scanner, error) {
 	compression := opts.Compression
 	if compression == CompressionUnknown {
 		compression = detectCompressionFromName(source)
@@ -106,10 +143,11 @@ func NewScannerFromSource(source RandomAccessSource, opts ScannerOptions) (*Scan
 		return nil, err
 	}
 	return &Scanner{
-		source: source,
-		rc:     rc,
-		stream: stream,
-		opts:   opts,
+		source:         source,
+		rc:             rc,
+		stream:         stream,
+		opts:           opts,
+		compressedBase: compressedBase,
 	}, nil
 }
 

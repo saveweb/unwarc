@@ -4,7 +4,9 @@ import "fmt"
 
 // Range describes a byte range. A negative Size means the end is unknown.
 type Range struct {
-	Off  int64
+	// Off is the first byte offset in the range.
+	Off int64
+	// Size is the number of bytes in the range, or -1 when the end is unknown.
 	Size int64
 }
 
@@ -176,13 +178,31 @@ type BlockIndex struct {
 	Frames []BlockFrameMapping
 }
 
-// RecordLocation describes where a finalized record appears in the global
-// uncompressed WARC stream and how it can be reopened.
+// RecordLocation describes where a finalized record appears in the scanner's
+// decoded WARC stream and how it can be reopened.
 type RecordLocation struct {
-	// Uncompressed is the record's range in the fully decoded WARC byte stream.
+	// Uncompressed is the record's range in this Scanner's decoded stream. It is
+	// relative to the point where the scanner started, so a Scanner created by
+	// NewScannerAt reports its first record at or near offset zero. It is not an
+	// absolute file offset and must not be passed to NewScannerAt.
 	Uncompressed Range
 	// Access describes the starting point required for lazy reopening.
 	Access AccessMode
+}
+
+// DecodeCost describes the storage bytes reopened and decoded bytes discarded
+// before a lazy read returns its requested output.
+type DecodeCost struct {
+	// EncodedRanges are absolute RandomAccessSource byte ranges to reopen.
+	// Ranges may be discontiguous when a record spans multiple independently
+	// compressed frames or members. A range with negative Size means decoding starts
+	// at Off and continues until enough decoded output has been produced.
+	EncodedRanges []Range
+	// DecodedDiscardBytes is the decoded byte count discarded before the
+	// returned reader starts producing bytes.
+	DecodedDiscardBytes int64
+	// DecodedOutputBytes is the decoded byte count returned by the lazy reader.
+	DecodedOutputBytes int64
 }
 
 // FoldedFieldPolicy controls whether WARC named-field continuation lines are

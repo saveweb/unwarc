@@ -15,7 +15,7 @@ func (s *Scanner) resolveRecord(record Range) recordResolution {
 		}
 		resolution.location.Access = AccessExact
 		resolution.raw = newDecodePlan(
-			[]Range{{Off: record.Off, Size: record.Size}},
+			[]Range{{Off: s.compressedBase + record.Off, Size: record.Size}},
 			Range{Off: 0, Size: record.Size},
 		)
 		return resolution
@@ -23,13 +23,24 @@ func (s *Scanner) resolveRecord(record Range) recordResolution {
 
 	switch s.stream.Compression() {
 	case CompressionGzip, CompressionZstd:
-		return s.resolveCompressionUnitRecord(resolution, record)
+		resolution = s.resolveCompressionUnitRecord(resolution, record)
+		s.shiftCompressedRanges(&resolution)
+		return resolution
 	default:
 		resolution.issues = append(resolution.issues, Issue{
 			Code:    IssueUnsupportedCompression,
 			Message: "unsupported compression",
 		})
 		return resolution
+	}
+}
+
+func (s *Scanner) shiftCompressedRanges(resolution *recordResolution) {
+	if s.compressedBase == 0 || resolution == nil || resolution.raw == nil {
+		return
+	}
+	for i := range resolution.raw.compressed {
+		resolution.raw.compressed[i].Off += s.compressedBase
 	}
 }
 

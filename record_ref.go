@@ -96,6 +96,49 @@ func (r *RecordRef) finalize(resolution recordResolution) {
 	r.finalized = true
 }
 
+// RawDecodeCost returns the cost of lazily opening the complete uncompressed
+// record bytes, including the WARC record header, record block, and trailer.
+// The second result is false while the record is pending or when the record
+// cannot be reopened from a random-access source.
+//
+// cost for OpenRaw()
+func (r *RecordRef) RawDecodeCost() (DecodeCost, bool) {
+	if !r.Finalized() {
+		return DecodeCost{}, false
+	}
+	return r.rawPlan.cost()
+}
+
+// BlockDecodeCost returns the cost of lazily opening the WARC record block
+// declared by Content-Length.
+// The second result is false while the record is pending or when the block
+// cannot be reopened from a random-access source.
+//
+// cost for OpenBlock()
+func (r *RecordRef) BlockDecodeCost() (DecodeCost, bool) {
+	if !r.Finalized() || r.rawPlan == nil {
+		return DecodeCost{}, false
+	}
+	return r.blockRangeDecodePlan(0, r.ContentLength).cost()
+}
+
+// BlockRangeDecodeCost returns the cost of lazily opening a byte range within
+// the WARC record block.
+// The second result is false while the record is pending or when the range
+// cannot be reopened from a random-access source.
+//
+// cost for OpenBlockRange(off, n)
+func (r *RecordRef) BlockRangeDecodeCost(off, size int64) (DecodeCost, bool, error) {
+	if off < 0 || size < 0 {
+		return DecodeCost{}, false, fmt.Errorf("invalid block range off=%d size=%d", off, size)
+	}
+	if !r.Finalized() || r.rawPlan == nil {
+		return DecodeCost{}, false, nil
+	}
+	cost, ok := r.blockRangeDecodePlan(off, size).cost()
+	return cost, ok, nil
+}
+
 // OpenRaw opens the complete uncompressed record bytes, including the WARC
 // record header, record block, and trailer.
 func (r *RecordRef) OpenRaw() (io.ReadCloser, error) {
@@ -110,13 +153,7 @@ func (r *RecordRef) OpenBlock() (io.ReadCloser, error) {
 	if !r.Finalized() {
 		return nil, ErrRecordLocationPending
 	}
-	if r.ContentLength == 0 {
-		return io.NopCloser(bytes.NewReader(nil)), nil
-	}
-	if plan, ok := r.blockIndex.plan(0, r.ContentLength); ok {
-		return r.openDecodePlan(plan)
-	}
-	return r.openDecodePlan(r.rawPlan.subrange(r.HeaderLen, r.ContentLength))
+	return r.openDecodePlan(r.blockRangeDecodePlan(0, r.ContentLength))
 }
 
 // OpenBlockRange opens a byte range within the WARC record block.
@@ -130,17 +167,20 @@ func (r *RecordRef) OpenBlockRange(off, size int64) (io.ReadCloser, error) {
 	if !r.Finalized() {
 		return nil, ErrRecordLocationPending
 	}
+	return r.openDecodePlan(r.blockRangeDecodePlan(off, size))
+}
+
+func (r *RecordRef) blockRangeDecodePlan(off, size int64) *decodePlan {
 	if off >= r.ContentLength || size == 0 {
-		return io.NopCloser(bytes.NewReader(nil)), nil
+		return newDecodePlan(nil, Range{Off: 0, Size: 0})
 	}
 	if end := off + size; end < off || end > r.ContentLength {
 		size = r.ContentLength - off
 	}
-
 	if plan, ok := r.blockIndex.plan(off, size); ok {
-		return r.openDecodePlan(plan)
+		return plan
 	}
-	return r.openDecodePlan(r.rawPlan.subrange(r.HeaderLen+off, size))
+	return r.rawPlan.subrange(r.HeaderLen+off, size)
 }
 
 func (r *RecordRef) openDecodePlan(plan *decodePlan) (io.ReadCloser, error) {
@@ -152,6 +192,9 @@ func (r *RecordRef) openDecodePlan(plan *decodePlan) (io.ReadCloser, error) {
 	}
 	if !plan.decoded.Valid() {
 		return nil, fmt.Errorf("invalid decoded range: %+v", plan.decoded)
+	}
+	if plan.decoded.Size == 0 {
+		return io.NopCloser(bytes.NewReader(nil)), nil
 	}
 
 	input, err := openCompressedRanges(r.decode.source, plan.compressed)

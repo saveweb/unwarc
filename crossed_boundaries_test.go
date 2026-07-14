@@ -77,6 +77,16 @@ func TestCrossedCompressionUnitAndRecordBoundaries(t *testing.T) {
 				if location != wantLocation {
 					t.Fatalf("record %d location = %+v, want %+v", i, location, wantLocation)
 				}
+				cost, ok := ref.RawDecodeCost()
+				if !ok {
+					t.Fatalf("record %d raw decode cost is unavailable", i)
+				}
+				if len(cost.EncodedRanges) != 1 || cost.EncodedRanges[0] != (Range{Off: wantStarts[i], Size: -1}) {
+					t.Fatalf("record %d encoded ranges = %+v, want off=%d to EOF", i, cost.EncodedRanges, wantStarts[i])
+				}
+				if cost.DecodedDiscardBytes != wantSkips[i] || cost.DecodedOutputBytes != int64(len(records[i])) {
+					t.Fatalf("record %d decode cost = %+v, want discard=%d output=%d", i, cost, wantSkips[i], len(records[i]))
+				}
 				wantRecordOff += int64(len(records[i]))
 				if ref.rawPlan == nil || len(ref.rawPlan.compressed) != 1 {
 					t.Fatalf("record %d raw plan = %+v", i, ref.rawPlan)

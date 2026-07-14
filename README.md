@@ -202,11 +202,17 @@ called. Keep the source backing bytes stable until all lazy readers are closed;
 `FileSource` reopens by path, so the file must not be replaced while collected
 references are being processed.
 
-After finalization, `RecordRef.Location()` reports the record's global
-uncompressed range and its `AccessMode`. Compression-specific decode plans stay
-internal; callers normally use `OpenRaw`, `OpenBlock`, or `OpenBlockRange`.
-`RecordRef.BlockIndex()` separately exposes parsed frame mappings when an
-indexed input provides them.
+After finalization, `RecordRef.Location()` reports the record's decoded WARC
+stream range and its `AccessMode`. Use `RawDecodeCost`, `BlockDecodeCost`, or
+`BlockRangeDecodeCost` to inspect the encoded ranges that must be reopened and
+the decoded bytes that must be discarded before output starts. Whole-file or
+solid compression often reports an encoded range starting at an earlier
+compression unit, with a non-zero decoded discard count.
+
+`OpenRaw`, `OpenBlock`, and `OpenBlockRange` open any lazy-loadable record. New
+code that wants to avoid hidden expensive work should check decode cost before
+opening. `RecordRef.BlockIndex()` separately exposes parsed frame mappings when
+an indexed input provides them.
 
 ```go
 source := unwarc.NewFileSource("crawl.warc.zst")
@@ -231,6 +237,13 @@ if err := scanner.Err(); err != nil {
 }
 
 for _, ref := range refs {
+	cost, ok := ref.BlockDecodeCost()
+	if !ok {
+		continue
+	}
+	if cost.DecodedDiscardBytes > 64<<20 {
+		continue
+	}
 	block, err := ref.OpenBlock()
 	if err != nil {
 		return err
@@ -373,11 +386,10 @@ Writer recommendation:
 - For small records, prefer the compact layout: one WARC record-header frame
   and one block-plus-trailer frame. The extra frame boundaries are rarely
   worth it.
-- For large HTTP responses, especially media replay, split best-effort at the
-  HTTP message boundary and then chunk the HTTP body into independently
-  seekable frames. This gives replay code a cheap body starting point and lets
-  `OpenBlockRange` decode only the body chunks that overlap a requested
-  range.
+- For large HTTP responses, split best-effort at the HTTP message boundary and
+  then chunk the HTTP body into independently seekable frames. This gives
+  viewers and extractors a cheap body starting point and lets `OpenBlockRange`
+  decode only the body chunks that overlap a requested range.
 - Splitting only the HTTP header from a single large body frame can slightly
   improve compression and records useful structure, but it does not materially
   speed up random body ranges by itself. Body chunking is what changes range
