@@ -9,15 +9,15 @@ import (
 )
 
 func TestPlainSourceLazyAccess(t *testing.T) {
-	payloads := [][]byte{
+	blocks := [][]byte{
 		[]byte("alpha"),
 		nil,
 		[]byte("omega"),
 	}
 	records := [][]byte{
-		makeRecord("warcinfo", "<urn:uuid:plain-source-1>", payloads[0]),
-		makeRecord("resource", "<urn:uuid:plain-source-zero>", payloads[1]),
-		makeRecord("response", "<urn:uuid:plain-source-2>", payloads[2]),
+		makeRecord("warcinfo", "<urn:uuid:plain-source-1>", blocks[0]),
+		makeRecord("resource", "<urn:uuid:plain-source-zero>", blocks[1]),
+		makeRecord("response", "<urn:uuid:plain-source-2>", blocks[2]),
 	}
 	data := bytes.Join(records, nil)
 
@@ -35,11 +35,11 @@ func TestPlainSourceLazyAccess(t *testing.T) {
 					t.Fatalf("record %d uncomp range = %+v, want %+v", i, ref.Location.Uncomp, wantRange)
 				}
 				assertExactRanges(t, ref, wantRange)
-				if ref.ContentLength != int64(len(payloads[i])) {
-					t.Fatalf("record %d content length = %d, want %d", i, ref.ContentLength, len(payloads[i]))
+				if ref.ContentLength != int64(len(blocks[i])) {
+					t.Fatalf("record %d content length = %d, want %d", i, ref.ContentLength, len(blocks[i]))
 				}
-				if ref.HeaderLen != int64(len(records[i])-len(payloads[i])-4) {
-					t.Fatalf("record %d header length = %d, want %d", i, ref.HeaderLen, len(records[i])-len(payloads[i])-4)
+				if ref.HeaderLen != int64(len(records[i])-len(blocks[i])-4) {
+					t.Fatalf("record %d header length = %d, want %d", i, ref.HeaderLen, len(records[i])-len(blocks[i])-4)
 				}
 				if ref.TrailerLen != 4 {
 					t.Fatalf("record %d trailer length = %d, want 4", i, ref.TrailerLen)
@@ -50,9 +50,9 @@ func TestPlainSourceLazyAccess(t *testing.T) {
 					t.Fatalf("record %d raw = %q, want %q", i, raw, records[i])
 				}
 
-				payload := readAllFrom(t, ref.OpenPayload)
-				if !bytes.Equal(payload, payloads[i]) {
-					t.Fatalf("record %d payload = %q, want %q", i, payload, payloads[i])
+				block := readAllFrom(t, ref.OpenBlock)
+				if !bytes.Equal(block, blocks[i]) {
+					t.Fatalf("record %d block = %q, want %q", i, block, blocks[i])
 				}
 
 				materialized, err := ref.Materialize()
@@ -69,6 +69,20 @@ func TestPlainSourceLazyAccess(t *testing.T) {
 				off += int64(len(records[i]))
 			}
 		})
+	}
+}
+
+func TestOpenBlockReturnsEntireHTTPMessageBlock(t *testing.T) {
+	block := []byte("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nhello")
+	record := makeRecord("response", "<urn:uuid:http-message-block>", block)
+	refs := scanPlainSourceRefs(t, newBytesSource(record), CompressionPlain)
+	if len(refs) != 1 {
+		t.Fatalf("records = %d, want 1", len(refs))
+	}
+
+	got := readAllFrom(t, refs[0].OpenBlock)
+	if !bytes.Equal(got, block) {
+		t.Fatalf("block = %q, want entire HTTP message %q", got, block)
 	}
 }
 
@@ -127,8 +141,8 @@ func TestPlainStreamCompressionUnknownFallsBackToPlain(t *testing.T) {
 }
 
 func TestNewRecordFromBytesParsesPlainRecord(t *testing.T) {
-	payload := []byte("from bytes")
-	data := makeRecord("response", "<urn:uuid:from-bytes>", payload)
+	block := []byte("from bytes")
+	data := makeRecord("response", "<urn:uuid:from-bytes>", block)
 
 	record, err := NewRecordFromBytes(data)
 	if err != nil {
@@ -140,8 +154,8 @@ func TestNewRecordFromBytesParsesPlainRecord(t *testing.T) {
 	if !bytes.Equal(record.Data, data) {
 		t.Fatalf("data = %q, want %q", record.Data, data)
 	}
-	if record.Ref.ContentLength != int64(len(payload)) {
-		t.Fatalf("content length = %d, want %d", record.Ref.ContentLength, len(payload))
+	if record.Ref.ContentLength != int64(len(block)) {
+		t.Fatalf("content length = %d, want %d", record.Ref.ContentLength, len(block))
 	}
 	wantRange := Range{Off: 0, Size: int64(len(data))}
 	assertExactRanges(t, record.Ref, wantRange)
@@ -168,9 +182,9 @@ func TestNewRecordFromBytesEmptyReturnsEOF(t *testing.T) {
 }
 
 func TestCompressedExactOpenRawOpensRangesOnDemand(t *testing.T) {
-	payload := bytes.Repeat([]byte("0123456789abcdef"), 512)
-	record := makeRecord("response", "<urn:uuid:lazy-ranges>", payload)
-	cut := bytes.Index(record, payload) + len(payload)/2
+	block := bytes.Repeat([]byte("0123456789abcdef"), 512)
+	record := makeRecord("response", "<urn:uuid:lazy-ranges>", block)
+	cut := bytes.Index(record, block) + len(block)/2
 	if cut <= 0 {
 		t.Fatal("bad test fixture")
 	}
@@ -254,13 +268,13 @@ func TestCompressedExactOpenRawClosesRangeOnDecoderError(t *testing.T) {
 	}
 }
 
-func TestCollectedRecordRefsCanReopenPayloadsConcurrently(t *testing.T) {
+func TestCollectedRecordRefsCanReopenBlocksConcurrently(t *testing.T) {
 	var records [][]byte
-	var payloads [][]byte
+	var blocks [][]byte
 	for i := 0; i < 12; i++ {
-		payload := bytes.Repeat([]byte{byte('A' + i)}, 1024+i)
-		payloads = append(payloads, payload)
-		records = append(records, makeRecord("response", "<urn:uuid:concurrent-reopen>", payload))
+		block := bytes.Repeat([]byte{byte('A' + i)}, 1024+i)
+		blocks = append(blocks, block)
+		records = append(records, makeRecord("response", "<urn:uuid:concurrent-reopen>", block))
 	}
 	data := bytes.Join(records, nil)
 
@@ -274,12 +288,12 @@ func TestCollectedRecordRefsCanReopenPayloadsConcurrently(t *testing.T) {
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						rc, err := ref.OpenPayload()
+						rc, err := ref.OpenBlock()
 						if err != nil {
-							t.Errorf("OpenPayload(%d): %v", i, err)
+							t.Errorf("OpenBlock(%d): %v", i, err)
 							return
 						}
-						payload, err := io.ReadAll(rc)
+						block, err := io.ReadAll(rc)
 						closeErr := rc.Close()
 						if err != nil {
 							t.Errorf("ReadAll(%d): %v", i, err)
@@ -289,8 +303,8 @@ func TestCollectedRecordRefsCanReopenPayloadsConcurrently(t *testing.T) {
 							t.Errorf("Close(%d): %v", i, closeErr)
 							return
 						}
-						if !bytes.Equal(payload, payloads[i]) {
-							t.Errorf("payload %d = %q, want %q", i, payload, payloads[i])
+						if !bytes.Equal(block, blocks[i]) {
+							t.Errorf("block %d = %q, want %q", i, block, blocks[i])
 						}
 					}()
 				}

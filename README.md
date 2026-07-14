@@ -21,8 +21,8 @@ should still be treated as evolving until a first tagged release.
 - Whole-file xz `.xz`
 
 Lazy random access is strongest for plain, gzip, and zstd. bzip2 and xz are
-decoded as whole-file streams; independent per-segment lazy access for those
-formats intentionally returns `ErrSegmentedCompressionNotImplemented`.
+decoded as whole-file streams; independent per-compression-unit lazy access for
+those formats intentionally returns `ErrCompressionUnitAccessNotImplemented`.
 
 ## WARC Terminology
 
@@ -36,15 +36,40 @@ This package follows the WARC grammar's hierarchy:
   `ParseWARCFields`.
 - The **record block** begins after the record header and contains exactly the
   number of octets declared by `Content-Length`.
+- A WARC **payload** is a record-type-specific subset of the block. `unwarc`
+  does not infer that subset: `RecordReader.Block`, `OpenBlock`, and
+  `OpenBlockRange` return block bytes. For an `application/http` response
+  block, that includes both the HTTP header section and body.
 - The record terminator is the `CRLF CRLF` following the record block.
+- A **compression unit** is a storage-layer unit such as a gzip member, zstd
+  frame, dictionary frame, or whole-file compression stream. It is unrelated
+  to WARC logical segmentation and the `WARC-Segment-*` fields.
 
 Record headers and `application/warc-fields` blocks therefore share named-field
 syntax, but they are not the same structure.
 
+### API terminology migration
+
+The pre-release API previously used “payload” for record-block bytes. Update
+callers as follows; compatibility aliases are intentionally not retained:
+
+| Previous API | Replacement |
+| --- | --- |
+| `Scanner.NextPayload` | `Scanner.NextRecord` plus `RecordReader.Block` |
+| `RecordRef.OpenPayload` | `RecordRef.OpenBlock` |
+| `RecordRef.OpenPayloadRange` | `RecordRef.OpenBlockRange` |
+| `RecordLocation.PayloadCompRanges` | `RecordLocation.BlockDecodeRanges` |
+| `RecordLocation.PayloadFrames` | `RecordLocation.BlockFrameMappings` |
+| `RecordPayloadFrame` | `BlockFrameMapping` |
+| `Segment` / `SegmentKind` | `CompressionUnit` / `CompressionUnitKind` |
+| `Segment*` constants | `CompressionUnit*` constants |
+| `AccessFromSegmentStart` | `AccessFromCompressionUnitStart` |
+| `ErrSegmentedCompressionNotImplemented` | `ErrCompressionUnitAccessNotImplemented` |
+
 ## Strict Mode
 
 `ScannerOptions.Strict` makes malformed record trailers fatal. For WARC-zstd it
-also enforces the proposed format rules that each zstd frame must include
+also enforces the format requirements that each zstd frame must include
 `Frame_Content_Size` and `Content_Checksum`, and that a single zstd frame must
 not contain multiple WARC records.
 
@@ -53,6 +78,13 @@ Non-strict scans keep parsing when possible and record diagnostics in
 `Frame_Content_Size` are decoded as streams and can still be lazy-opened after
 finalization when their compressed range is known and the record covers the
 whole frame.
+
+Non-strict mode also accepts practical, non-conforming layouts such as a solid
+gzip member or a zstd frame containing bytes from multiple WARC records. These
+layouts receive diagnostics. With a random-access source, reopening starts at
+the containing compression-unit boundary and discards decoded bytes before the
+requested record; without one, the records remain available through sequential
+streaming with `AccessStreamOnly`.
 
 WARC version lines, header CRLF framing, and named-field syntax are always
 parsed strictly. `ScannerOptions.Strict` controls whether malformed record
@@ -105,11 +137,13 @@ WARC-zstd frames. Frames without `Frame_Content_Size`, frames larger than this
 limit, and frames whose compressed bytes exceed it are decoded with a streaming
 fallback instead of being buffered whole.
 
-## One-Pass Payload Usage
+## One-Pass Block Usage
 
-Use `NextPayload` when you want to process each payload in file order. This is
-the fast path for gzip because each compressed member is decompressed once. It
-works with both `NewScanner` and `NewScannerFromSource`.
+Use `NextRecord` when you want to process each WARC record block in file order.
+It returns a `RecordReader` that owns the active record lifecycle and exposes
+its block through `Block`. This is the fast path for gzip because each
+compressed member is decompressed once. It works with both `NewScanner` and
+`NewScannerFromSource`.
 
 ```go
 source := unwarc.NewFileSource("crawl.warc.gz")
@@ -123,19 +157,20 @@ if err != nil {
 defer scanner.Close()
 
 for {
-	ref, payload, err := scanner.NextPayload()
+	record, err := scanner.NextRecord()
 	if errors.Is(err, io.EOF) {
 		break
 	}
 	if err != nil {
 		return err
 	}
+	ref := record.Ref()
 
 	warcType, _ := ref.Header.Get("WARC-Type")
 	fmt.Println(warcType, ref.ContentLength)
 
-	_, err = io.Copy(io.Discard, payload)
-	closeErr := payload.Close()
+	_, err = io.Copy(io.Discard, record.Block())
+	closeErr := record.Close()
 	if err != nil {
 		return err
 	}
@@ -143,7 +178,7 @@ for {
 		return closeErr
 	}
 
-	// After the payload has been read or closed, the same ref has final
+	// After the block has been read or closed, the same ref has final
 	// location metadata and may be lazy-opened later if its access mode allows.
 	if !ref.Finalized() {
 		return fmt.Errorf("record was not finalized")
@@ -154,19 +189,22 @@ if err := scanner.Err(); err != nil {
 }
 ```
 
-References returned by `NextPayload` may be unfinalized
-(`RecordRef.Location.Final == false`) until the payload reader reaches EOF or
-is closed. Calling `OpenRaw` or `OpenPayload` before finalization returns
-`ErrRecordLocationPending`. While a `NextPayload` reader is active,
-`Scanner.RecordRef()` returns `nil`; use the `ref` returned by `NextPayload` for
-header inspection before finalization.
+References returned by `RecordReader.Ref` may be unfinalized
+(`RecordRef.Location.Final == false`) until the block reaches EOF or the record
+is closed. Calling `OpenRaw` or `OpenBlock` before finalization returns
+`ErrRecordLocationPending`. While a `NextRecord` reader is active,
+`Scanner.RecordRef()` returns `nil`; use `record.Ref()` for header inspection
+before finalization. Calling `NextRecord`, `Next`, `Err`, or `Scanner.Close`
+automatically closes and drains an active record; any trailer or compression
+error encountered during that finalization is returned or retained by the
+scanner.
 
 ## Lazy Random-Access Usage
 
 Use `NewScannerFromSource` with `Next` when you want to scan first and lazily
 reopen records later. The source can reopen byte ranges, so finalized record
 references remain usable after scanning. For compressed inputs this path may
-re-read and re-decompress compressed data when `OpenRaw` or `OpenPayload` is
+re-read and re-decompress compressed data when `OpenRaw` or `OpenBlock` is
 called. Keep the source backing bytes stable until all lazy readers are closed;
 `FileSource` reopens by path, so the file must not be replaced while collected
 references are being processed.
@@ -191,12 +229,12 @@ if err := scanner.Err(); err != nil {
 }
 
 for _, ref := range refs {
-	payload, err := ref.OpenPayload()
+	block, err := ref.OpenBlock()
 	if err != nil {
 		return err
 	}
-	_, err = io.Copy(io.Discard, payload)
-	closeErr := payload.Close()
+	_, err = io.Copy(io.Discard, block)
+	closeErr := block.Close()
 	if err != nil {
 		return err
 	}
@@ -210,11 +248,11 @@ for _, ref := range refs {
 
 You can also scan finalized references in one goroutine and process them with a
 worker pool. This overlaps sequential boundary discovery with concurrent lazy
-payload reads. The channel should be bounded so slow workers apply backpressure
+block reads. The channel should be bounded so slow workers apply backpressure
 to the scanner instead of accumulating every reference in memory.
 
 This pattern still re-reads and re-decompresses compressed data in the workers.
-Use `NextPayload` instead when the main goal is one-pass gzip processing.
+Use `NextRecord` instead when the main goal is one-pass gzip processing.
 
 ```go
 source := unwarc.NewFileSource("crawl.warc.gz")
@@ -237,14 +275,14 @@ for i := 0; i < workers; i++ {
 	go func() {
 		defer wg.Done()
 		for ref := range refs {
-			payload, err := ref.OpenPayload()
+			block, err := ref.OpenBlock()
 			if err != nil {
 				errc <- err
 				return
 			}
 
-			_, readErr := io.Copy(io.Discard, payload)
-			closeErr := payload.Close()
+			_, readErr := io.Copy(io.Discard, block)
+			closeErr := block.Close()
 			if readErr != nil {
 				errc <- readErr
 				return
@@ -290,7 +328,8 @@ fast reverse indexing. In this profile, each record is encoded as:
 
 ```text
 zstd frame: WARC record-header bytes
-one or more zstd frames: payload bytes, optionally chunked, plus record trailer
+one or more zstd frames: record-block bytes, optionally chunked,
+                         plus record trailer
 skippable frame: record-local zstd seek table for the frames above
 ```
 
@@ -299,19 +338,20 @@ line, WARC named fields, and the terminating empty CRLF line. The seek table is
 local to the record, so a record copied into another WARC file still carries
 meaningful frame sizes. The index builder walks backward from the file tail,
 reads each record-local seek table, and decodes only the record-header frame.
-Payload frames are not decoded while building the index; `OpenPayload` can
-later reopen only the payload frame ranges.
+Block frames are not decoded while building the index; `OpenBlock` can later
+reopen only the block frame ranges.
 
-Small records can use a single payload frame. Large media responses can split
-payload bytes across many smaller frames; `RecordLocation.PayloadFrames` maps
-each payload-producing compressed frame to its payload-relative byte range, and
-`OpenPayloadRange` uses that map to reopen only overlapping frames. A trailing
-frame that contains only the WARC record trailer may appear in
-`PayloadCompRanges`, but it is not listed in `PayloadFrames` because it does
-not contribute payload bytes.
+Small records can use a single block frame. Large records can split block bytes
+across many smaller frames; `RecordLocation.BlockFrameMappings` maps each
+block-producing compressed frame to its block-relative byte range, and
+`OpenBlockRange` uses those mappings to reopen only overlapping frames. A
+trailing frame that contains only the WARC record trailer may appear in
+`BlockDecodeRanges`, but it is not listed in `BlockFrameMappings` because it
+does not contribute block bytes.
 
-For HTTP response/request records, writers may also split the WARC payload on
-the HTTP message boundary as a best-effort optimization:
+For HTTP response/request records, the WARC record block contains an HTTP
+message. Writers may split that block at the HTTP header/body boundary as a
+best-effort optimization:
 
 ```text
 zstd frame: WARC record-header bytes
@@ -322,32 +362,33 @@ skippable frame: record-local zstd seek table
 ```
 
 The table still stores only generic frame sizes. The reader treats these as
-ordinary payload frames; higher layers that parse HTTP can use
-`RecordLocation.PayloadFrames` plus their own parsed HTTP header length to find
-the first body frame. The reader does not label frames as HTTP header or body.
+ordinary block frames; higher layers that parse HTTP can use
+`RecordLocation.BlockFrameMappings` plus their own parsed HTTP header length to
+find the first body frame. The reader does not label frames as HTTP header or
+body.
 
 Writer recommendation:
 
 - For small records, prefer the compact layout: one WARC record-header frame
-  and one payload-plus-trailer frame. The extra frame boundaries are rarely
+  and one block-plus-trailer frame. The extra frame boundaries are rarely
   worth it.
 - For large HTTP responses, especially media replay, split best-effort at the
   HTTP message boundary and then chunk the HTTP body into independently
   seekable frames. This gives replay code a cheap body starting point and lets
-  `OpenPayloadRange` decode only the body chunks that overlap a requested
+  `OpenBlockRange` decode only the body chunks that overlap a requested
   range.
 - Splitting only the HTTP header from a single large body frame can slightly
   improve compression and records useful structure, but it does not materially
   speed up random body ranges by itself. Body chunking is what changes range
   access cost.
 - If the HTTP boundary cannot be identified confidently, fall back to the
-  generic payload frame layout and preserve the payload bytes unchanged.
+  generic block-frame layout and preserve the record-block bytes unchanged.
 
 For `Content-Length: 0` records, the recommended compact form is one zstd frame
 containing the WARC record header plus record trailer, followed by a one-entry
 record-local seek table. The reader also accepts the two-frame form with a WARC
-record-header frame and a trailer-only frame, but `OpenPayload` returns an empty reader
-without reopening either frame.
+record-header frame and a trailer-only frame, but `OpenBlock` returns an empty
+reader without reopening either frame.
 
 ```go
 source := unwarc.NewFileSource("crawl.seek.warc.zst")
@@ -362,12 +403,12 @@ if err != nil {
 }
 
 for _, ref := range index.Records() {
-	payload, err := ref.OpenPayload()
+	block, err := ref.OpenBlock()
 	if err != nil {
 		return err
 	}
-	_, err = io.Copy(io.Discard, payload)
-	closeErr := payload.Close()
+	_, err = io.Copy(io.Discard, block)
+	closeErr := block.Close()
 	if err != nil {
 		return err
 	}
@@ -386,7 +427,7 @@ fallback policy.
 
 Use `NewScanner` for stream-only validation or record listing. A stream-only
 scanner cannot lazy-open record bytes after a record has passed, so do not call
-`OpenRaw` or `OpenPayload` on its references.
+`OpenRaw` or `OpenBlock` on its references.
 
 ```go
 f, err := os.Open("crawl.warc.gz")
@@ -425,7 +466,7 @@ Sentinel errors are exported for `errors.Is`, including:
 - `ErrFoldedWARCField`
 - `ErrMissingRecordTrailer`
 - `ErrUnsupportedCompression`
-- `ErrSegmentedCompressionNotImplemented`
+- `ErrCompressionUnitAccessNotImplemented`
 - `ErrInvalidWARCZstd`
 - `ErrRecordLocationPending`
 - `ErrNotSeekIndexed`
@@ -471,11 +512,11 @@ Benchmarks for large local corpora are gated by an environment variable:
 UNWARC_BENCH_WARC=/path/to/input.warc.gz go test -run '^$' -bench BenchmarkRealWARC -benchtime=1x -benchmem
 ```
 
-The benchmark compares stream payload access, source-backed stream payload
-access, and source-backed scan-then-lazy-reopen payload access. The first two
+The benchmark compares stream block access, source-backed stream block access,
+and source-backed scan-then-lazy-reopen block access. The first two
 are the one-pass paths; the lazy reopening benchmark intentionally measures the
 cost of re-reading compressed bytes. Use `-bench
-'BenchmarkRealWARC/source_stream_payload$'` or another sub-benchmark suffix to
+'BenchmarkRealWARC/source_stream_block$'` or another sub-benchmark suffix to
 run one path at a time.
 
 ## Production Checklist Before Tagging
@@ -485,4 +526,4 @@ run one path at a time.
   fixtures under `testdata/corpus`.
 - Decide which issue codes and access modes are part of the stable public API.
 - Tag a release only after downstream integration has exercised lazy
-  `OpenRaw`/`OpenPayload` on real files.
+  `OpenRaw`/`OpenBlock` on real files.

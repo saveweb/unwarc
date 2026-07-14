@@ -40,13 +40,13 @@ type ScannerOptions struct {
 type Scanner struct {
 	source RandomAccessSource
 	rc     io.ReadCloser
-	stream segmentStream
+	stream compressionStream
 	opts   ScannerOptions
 
 	err error
 	ref *RecordRef
 
-	activePayload *streamPayloadReader
+	activeRecord *RecordReader
 }
 
 // NewScanner creates a scanner over r. Lazy reopening is unavailable because
@@ -60,7 +60,7 @@ func NewScanner(r io.Reader, opts ScannerOptions) (*Scanner, error) {
 			return nil, err
 		}
 	}
-	stream, err := newSegmentStream(r, compression, opts.maxBufferedZstdFrameSize(), opts.Strict)
+	stream, err := newCompressionStream(r, compression, opts.maxBufferedZstdFrameSize(), opts.Strict)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func NewScannerFromSource(source RandomAccessSource, opts ScannerOptions) (*Scan
 		}
 		rc = &readCloser{Reader: r, close: rc.Close}
 	}
-	stream, err := newSegmentStream(rc, compression, opts.maxBufferedZstdFrameSize(), opts.Strict)
+	stream, err := newCompressionStream(rc, compression, opts.maxBufferedZstdFrameSize(), opts.Strict)
 	if err != nil {
 		_ = rc.Close()
 		return nil, err
@@ -113,16 +113,14 @@ func (o ScannerOptions) maxBufferedZstdFrameSize() int64 {
 	return o.MaxBufferedZstdFrameSize
 }
 
-// Close closes the underlying source reader when the scanner owns one.
+// Close finalizes any active record and closes the underlying readers.
 func (s *Scanner) Close() error {
-	var err error
+	err := s.closeActiveRecord()
 	if closer, ok := s.stream.(io.Closer); ok {
-		err = closer.Close()
+		err = errors.Join(err, closer.Close())
 	}
 	if s.rc != nil {
-		if closeErr := s.rc.Close(); err == nil {
-			err = closeErr
-		}
+		err = errors.Join(err, s.rc.Close())
 	}
 	return err
 }
@@ -133,7 +131,7 @@ func (s *Scanner) Next() bool {
 	if s.err != nil {
 		return false
 	}
-	if err := s.closeActivePayload(); err != nil {
+	if err := s.closeActiveRecord(); err != nil {
 		s.err = err
 		return false
 	}
@@ -149,19 +147,21 @@ func (s *Scanner) Next() bool {
 	return true
 }
 
-// NextPayload advances to the next record and returns a streaming reader for
-// its content block. Callers must read the returned payload to EOF or close it
-// before advancing again. The current RecordRef's trailer length, location, and
-// non-fatal issues are finalized when the payload is exhausted or closed.
+// NextRecord advances to the next WARC record and returns its streaming record
+// reader. The reader exposes the parsed header and streams the record block.
+// Trailer validation, location resolution, and non-fatal diagnostics are
+// finalized when the block is exhausted or the record is closed. Advancing
+// automatically closes and drains the previous record, returning any error
+// produced while finalizing it.
 //
 // It returns io.EOF when no more records are available.
-func (s *Scanner) NextPayload() (*RecordRef, io.ReadCloser, error) {
+func (s *Scanner) NextRecord() (*RecordReader, error) {
 	if s.err != nil {
-		return nil, nil, s.err
+		return nil, s.err
 	}
-	if err := s.closeActivePayload(); err != nil {
+	if err := s.closeActiveRecord(); err != nil {
 		s.err = err
-		return nil, nil, err
+		return nil, err
 	}
 
 	ref, start, err := s.readRecordStart()
@@ -169,24 +169,23 @@ func (s *Scanner) NextPayload() (*RecordRef, io.ReadCloser, error) {
 		if !errors.Is(err, io.EOF) {
 			s.err = err
 		}
-		return nil, nil, err
+		return nil, err
 	}
 
-	payload := &streamPayloadReader{
+	record := &RecordReader{
 		scanner:   s,
 		ref:       ref,
 		start:     start,
 		remaining: ref.ContentLength,
 	}
 	s.ref = ref
-	s.activePayload = payload
-	return ref, payload, nil
+	s.activeRecord = record
+	return record, nil
 }
 
 // RecordRef returns the current finalized record reference. It returns nil
-// before the first record and while a NextPayload payload reader is still
-// active. Use the reference returned by NextPayload to inspect header fields
-// before the payload is exhausted or closed.
+// before the first record and while a NextRecord reader is still active. Use
+// RecordReader.Ref to inspect header fields before the record is finalized.
 func (s *Scanner) RecordRef() *RecordRef {
 	if s.ref == nil || !s.ref.Finalized() {
 		return nil
@@ -196,8 +195,8 @@ func (s *Scanner) RecordRef() *RecordRef {
 
 // Err returns the first non-EOF error encountered by the scanner.
 func (s *Scanner) Err() error {
-	if s.err == nil && s.activePayload != nil {
-		s.err = s.closeActivePayload()
+	if s.err == nil && s.activeRecord != nil {
+		s.err = s.closeActiveRecord()
 	}
 	return s.err
 }
@@ -277,14 +276,17 @@ func (s *Scanner) finishRecord(ref *RecordRef, start int64) error {
 	return nil
 }
 
-func (s *Scanner) closeActivePayload() error {
-	if s.activePayload == nil {
+func (s *Scanner) closeActiveRecord() error {
+	if s.activeRecord == nil {
 		return nil
 	}
-	return s.activePayload.Close()
+	return s.activeRecord.Close()
 }
 
-type streamPayloadReader struct {
+// RecordReader is the active streaming view of one WARC record. Ref is
+// available immediately after the record header is parsed, but its location is
+// finalized only after Block reaches EOF or Close completes.
+type RecordReader struct {
 	scanner   *Scanner
 	ref       *RecordRef
 	start     int64
@@ -292,7 +294,27 @@ type streamPayloadReader struct {
 	closed    bool
 }
 
-func (r *streamPayloadReader) Read(p []byte) (int, error) {
+var _ io.ReadCloser = (*RecordReader)(nil)
+
+// Ref returns the record reference associated with this reader. Header fields
+// and ContentLength are available immediately; location-dependent operations
+// require Ref().Finalized() to report true.
+func (r *RecordReader) Ref() *RecordRef {
+	if r == nil {
+		return nil
+	}
+	return r.ref
+}
+
+// Block returns a reader for the WARC record block declared by Content-Length.
+// The returned reader is owned by the RecordReader and must not be used after
+// Close. Reading it to EOF finalizes the record.
+func (r *RecordReader) Block() io.Reader {
+	return r
+}
+
+// Read reads bytes from the WARC record block.
+func (r *RecordReader) Read(p []byte) (int, error) {
 	if r.closed {
 		return 0, io.EOF
 	}
@@ -322,7 +344,9 @@ func (r *streamPayloadReader) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-func (r *streamPayloadReader) Close() error {
+// Close drains any unread block bytes, validates the record trailer, and
+// finalizes the record reference and compression mapping.
+func (r *RecordReader) Close() error {
 	if r.closed {
 		return nil
 	}
@@ -336,13 +360,13 @@ func (r *streamPayloadReader) Close() error {
 	return r.finish()
 }
 
-func (r *streamPayloadReader) finish() error {
+func (r *RecordReader) finish() error {
 	if r.closed {
 		return nil
 	}
 	r.closed = true
-	if r.scanner.activePayload == r {
-		r.scanner.activePayload = nil
+	if r.scanner.activeRecord == r {
+		r.scanner.activeRecord = nil
 	}
 	if err := r.scanner.finishRecord(r.ref, r.start); err != nil {
 		r.scanner.err = err
@@ -351,10 +375,10 @@ func (r *streamPayloadReader) finish() error {
 	return nil
 }
 
-func (r *streamPayloadReader) fail(err error) {
+func (r *RecordReader) fail(err error) {
 	r.closed = true
-	if r.scanner.activePayload == r {
-		r.scanner.activePayload = nil
+	if r.scanner.activeRecord == r {
+		r.scanner.activeRecord = nil
 	}
 	r.scanner.err = err
 }
@@ -372,7 +396,7 @@ func (s *Scanner) strictIssueError(loc RecordLocation) error {
 	return nil
 }
 
-func streamZstdDictionaries(stream segmentStream) [][]byte {
+func streamZstdDictionaries(stream compressionStream) [][]byte {
 	zs, ok := stream.(interface{ PrefixDictionaries() [][]byte })
 	if !ok {
 		return nil

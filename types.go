@@ -61,44 +61,47 @@ func (c Compression) String() string {
 	}
 }
 
-// SegmentKind identifies the compressed segment that produced bytes.
-type SegmentKind int
+// CompressionUnitKind identifies a physical compression unit in the input.
+// Compression units are distinct from WARC logical segments represented by
+// WARC-Segment-* fields.
+type CompressionUnitKind int
 
 const (
-	SegmentPlain SegmentKind = iota
-	SegmentGzipMember
-	SegmentZstdFrame
-	SegmentZstdDict
-	SegmentZstdSkippable
-	SegmentXZStream
-	SegmentBzip2Stream
+	CompressionUnitPlain CompressionUnitKind = iota
+	CompressionUnitGzipMember
+	CompressionUnitZstdFrame
+	CompressionUnitZstdDict
+	CompressionUnitZstdSkippable
+	CompressionUnitXZStream
+	CompressionUnitBzip2Stream
 )
 
-func (k SegmentKind) String() string {
+func (k CompressionUnitKind) String() string {
 	switch k {
-	case SegmentPlain:
+	case CompressionUnitPlain:
 		return "plain"
-	case SegmentGzipMember:
+	case CompressionUnitGzipMember:
 		return "gzip-member"
-	case SegmentZstdFrame:
+	case CompressionUnitZstdFrame:
 		return "zstd-frame"
-	case SegmentZstdDict:
+	case CompressionUnitZstdDict:
 		return "zstd-dict"
-	case SegmentZstdSkippable:
+	case CompressionUnitZstdSkippable:
 		return "zstd-skippable"
-	case SegmentXZStream:
+	case CompressionUnitXZStream:
 		return "xz-stream"
-	case SegmentBzip2Stream:
+	case CompressionUnitBzip2Stream:
 		return "bzip2-stream"
 	default:
-		return fmt.Sprintf("segment-kind-%d", int(k))
+		return fmt.Sprintf("compression-unit-kind-%d", int(k))
 	}
 }
 
-// Segment records the relationship between compressed and uncompressed bytes
-// for a compression member, frame, dictionary, or whole-file stream.
-type Segment struct {
-	Kind SegmentKind
+// CompressionUnit records the relationship between compressed and
+// uncompressed bytes for a compression member, frame, dictionary, or
+// whole-file stream. It is a storage-layer concept, not a WARC logical segment.
+type CompressionUnit struct {
+	Kind CompressionUnitKind
 
 	Comp   Range
 	Uncomp Range
@@ -118,9 +121,9 @@ const (
 	AccessPending AccessMode = iota
 	// AccessExact means the compressed ranges map exactly to the record.
 	AccessExact
-	// AccessFromSegmentStart means lazy reads restart at a compressed segment
-	// boundary and discard preceding uncompressed bytes.
-	AccessFromSegmentStart
+	// AccessFromCompressionUnitStart means lazy reads restart at a compression
+	// unit boundary and discard preceding uncompressed bytes.
+	AccessFromCompressionUnitStart
 	// AccessFromFileStart means lazy reads restart at the beginning of the file.
 	AccessFromFileStart
 	// AccessStreamOnly means the record was found but cannot be lazily reopened.
@@ -135,8 +138,8 @@ func (m AccessMode) String() string {
 		return "pending"
 	case AccessExact:
 		return "exact"
-	case AccessFromSegmentStart:
-		return "from-segment-start"
+	case AccessFromCompressionUnitStart:
+		return "from-compression-unit-start"
 	case AccessFromFileStart:
 		return "from-file-start"
 	case AccessStreamOnly:
@@ -187,12 +190,12 @@ type Issue struct {
 	Message string
 }
 
-// RecordPayloadFrame maps one compressed frame to the payload bytes it
-// contributes. Payload is relative to the WARC record payload, not to the
-// whole uncompressed WARC stream.
-type RecordPayloadFrame struct {
-	Comp    Range
-	Payload Range
+// BlockFrameMapping maps one compressed frame to the record-block bytes it
+// contributes. Block is relative to the WARC record block, not to the whole
+// uncompressed WARC stream.
+type BlockFrameMapping struct {
+	Comp  Range
+	Block Range
 }
 
 // RecordLocation describes a record in two coordinate systems:
@@ -200,9 +203,9 @@ type RecordPayloadFrame struct {
 //   - Uncomp is the record's range in the global uncompressed WARC byte stream.
 //   - CompRanges and RestartRange are ranges in the compressed input bytes.
 //
-// Exact lazy access uses CompRanges when compressed segments map exactly to the
+// Exact lazy access uses CompRanges when compression units map exactly to the
 // record. Restart lazy access uses RestartRange and RestartUncompOff when the
-// nearest independently decodable compressed segment starts before the record.
+// nearest independently decodable compression unit starts before the record.
 //
 // Example restart mapping:
 //
@@ -228,18 +231,20 @@ type RecordLocation struct {
 	// They are populated for AccessExact records.
 	CompRanges []Range
 
-	// PayloadCompRanges are compressed byte ranges that decode directly to the
-	// record payload, optionally followed by the record trailer. When present,
-	// OpenPayload can avoid reopening and decoding header bytes.
-	PayloadCompRanges []Range
+	// BlockDecodeRanges are compressed byte ranges used by optimized block
+	// access. For non-empty blocks, their concatenated decoded output starts at
+	// block offset zero and may continue through record-trailer bytes. An empty
+	// block may instead have a trailer-only range. When populated, OpenBlock
+	// avoids decoding record-header bytes.
+	BlockDecodeRanges []Range
 
-	// PayloadFrames maps payload-producing compressed frames to payload-relative
-	// uncompressed ranges. Seek-indexed WARC-zstd records populate it so callers
-	// can choose the nearest frame for replay or range extraction.
-	PayloadFrames []RecordPayloadFrame
+	// BlockFrameMappings map block-producing compressed frames to block-relative
+	// uncompressed ranges. Seek-indexed WARC-zstd records populate them so
+	// callers can choose the nearest frame for replay or range extraction.
+	BlockFrameMappings []BlockFrameMapping
 
 	// RestartRange is a compressed byte range where lazy reopening can restart
-	// decoding when the record starts inside a larger compressed segment.
+	// decoding when the record starts inside a larger compression unit.
 	// RestartRange.Off is a compressed-file offset.
 	//
 	// RestartUncompOff is the global uncompressed offset produced by

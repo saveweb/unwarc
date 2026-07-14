@@ -36,8 +36,8 @@ type RecordRef struct {
 
 // Finalized reports whether the record location is complete. References
 // returned by Scanner.Next are finalized before they are exposed; references
-// returned by Scanner.NextPayload are finalized only after the payload reader
-// reaches EOF or is closed.
+// exposed by RecordReader.Ref are finalized only after the record block reaches
+// EOF or the RecordReader is closed.
 func (r *RecordRef) Finalized() bool {
 	return r != nil && r.Location.Final
 }
@@ -55,7 +55,7 @@ func (r *RecordRef) OpenRaw() (io.ReadCloser, error) {
 	switch r.Location.Access {
 	case AccessExact:
 		return r.openExactRaw()
-	case AccessFromSegmentStart:
+	case AccessFromCompressionUnitStart:
 		return r.openFromRestart()
 	case AccessFromFileStart:
 		return r.openFromFileStart()
@@ -64,16 +64,16 @@ func (r *RecordRef) OpenRaw() (io.ReadCloser, error) {
 	}
 }
 
-// OpenPayload opens only the WARC record content block.
-func (r *RecordRef) OpenPayload() (io.ReadCloser, error) {
+// OpenBlock opens the WARC record block declared by Content-Length.
+func (r *RecordRef) OpenBlock() (io.ReadCloser, error) {
 	if !r.Location.Final {
 		return nil, ErrRecordLocationPending
 	}
 	if r.ContentLength == 0 {
 		return io.NopCloser(bytes.NewReader(nil)), nil
 	}
-	if len(r.Location.PayloadCompRanges) > 0 {
-		return r.openExactPayload()
+	if len(r.Location.BlockDecodeRanges) > 0 {
+		return r.openExactBlock()
 	}
 	raw, err := r.OpenRaw()
 	if err != nil {
@@ -89,13 +89,13 @@ func (r *RecordRef) OpenPayload() (io.ReadCloser, error) {
 	}, nil
 }
 
-// OpenPayloadRange opens a byte range within the WARC record content block.
-// When payload-frame metadata is available, it reopens only the compressed
-// frames overlapping the requested payload range; otherwise it falls back to
-// OpenPayload and discards bytes before off.
-func (r *RecordRef) OpenPayloadRange(off, size int64) (io.ReadCloser, error) {
+// OpenBlockRange opens a byte range within the WARC record block.
+// When block-frame metadata is available, it reopens only the compressed
+// frames overlapping the requested block range; otherwise it falls back to
+// OpenBlock and discards bytes before off.
+func (r *RecordRef) OpenBlockRange(off, size int64) (io.ReadCloser, error) {
 	if off < 0 || size < 0 {
-		return nil, fmt.Errorf("invalid payload range off=%d size=%d", off, size)
+		return nil, fmt.Errorf("invalid block range off=%d size=%d", off, size)
 	}
 	if !r.Location.Final {
 		return nil, ErrRecordLocationPending
@@ -107,25 +107,25 @@ func (r *RecordRef) OpenPayloadRange(off, size int64) (io.ReadCloser, error) {
 		size = r.ContentLength - off
 	}
 
-	if len(r.Location.PayloadFrames) == 0 {
-		payload, err := r.OpenPayload()
+	if len(r.Location.BlockFrameMappings) == 0 {
+		block, err := r.OpenBlock()
 		if err != nil {
 			return nil, err
 		}
-		if _, err := io.CopyN(io.Discard, payload, off); err != nil {
-			_ = payload.Close()
+		if _, err := io.CopyN(io.Discard, block, off); err != nil {
+			_ = block.Close()
 			return nil, err
 		}
 		return &readCloser{
-			Reader: io.LimitReader(payload, size),
-			close:  payload.Close,
+			Reader: io.LimitReader(block, size),
+			close:  block.Close,
 		}, nil
 	}
-	return r.openIndexedPayloadRange(off, size)
+	return r.openIndexedBlockRange(off, size)
 }
 
-func (r *RecordRef) openExactPayload() (io.ReadCloser, error) {
-	raw, err := r.openPayloadCompressedRanges(r.Location.PayloadCompRanges)
+func (r *RecordRef) openExactBlock() (io.ReadCloser, error) {
+	raw, err := r.openBlockCompressedRanges(r.Location.BlockDecodeRanges)
 	if err != nil {
 		return nil, err
 	}
@@ -135,13 +135,13 @@ func (r *RecordRef) openExactPayload() (io.ReadCloser, error) {
 	}, nil
 }
 
-func (r *RecordRef) openIndexedPayloadRange(off, size int64) (io.ReadCloser, error) {
+func (r *RecordRef) openIndexedBlockRange(off, size int64) (io.ReadCloser, error) {
 	want := Range{Off: off, Size: size}
 	var ranges []Range
-	var first *RecordPayloadFrame
-	for i := range r.Location.PayloadFrames {
-		frame := r.Location.PayloadFrames[i]
-		if !rangesOverlap(frame.Payload, want) {
+	var first *BlockFrameMapping
+	for i := range r.Location.BlockFrameMappings {
+		frame := r.Location.BlockFrameMappings[i]
+		if !rangesOverlap(frame.Block, want) {
 			continue
 		}
 		if first == nil {
@@ -153,11 +153,11 @@ func (r *RecordRef) openIndexedPayloadRange(off, size int64) (io.ReadCloser, err
 		return io.NopCloser(bytes.NewReader(nil)), nil
 	}
 
-	reader, err := r.openPayloadCompressedRanges(ranges)
+	reader, err := r.openBlockCompressedRanges(ranges)
 	if err != nil {
 		return nil, err
 	}
-	skip := off - first.Payload.Off
+	skip := off - first.Block.Off
 	if skip > 0 {
 		if _, err := io.CopyN(io.Discard, reader, skip); err != nil {
 			_ = reader.Close()
@@ -170,12 +170,12 @@ func (r *RecordRef) openIndexedPayloadRange(off, size int64) (io.ReadCloser, err
 	}, nil
 }
 
-func (r *RecordRef) openPayloadCompressedRanges(ranges []Range) (io.ReadCloser, error) {
+func (r *RecordRef) openBlockCompressedRanges(ranges []Range) (io.ReadCloser, error) {
 	if r.source == nil {
 		return nil, fmt.Errorf("record has no random access source")
 	}
 	if r.compression == CompressionBzip2 || r.compression == CompressionXZ {
-		return nil, fmt.Errorf("%w: %s", ErrSegmentedCompressionNotImplemented, r.compression)
+		return nil, fmt.Errorf("%w: %s", ErrCompressionUnitAccessNotImplemented, r.compression)
 	}
 	rc := &multiReadCloser{
 		source: r.source,
@@ -220,7 +220,7 @@ func (r *RecordRef) openExactRaw() (io.ReadCloser, error) {
 		return r.source.OpenRange(rr.Off, rr.Size)
 	}
 	if r.compression == CompressionBzip2 || r.compression == CompressionXZ {
-		return nil, fmt.Errorf("%w: %s", ErrSegmentedCompressionNotImplemented, r.compression)
+		return nil, fmt.Errorf("%w: %s", ErrCompressionUnitAccessNotImplemented, r.compression)
 	}
 
 	ranges := &multiReadCloser{

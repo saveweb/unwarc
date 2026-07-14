@@ -27,8 +27,8 @@ type zstdVariantPaths struct {
 }
 
 type realCorpusStats struct {
-	Records      int
-	PayloadBytes int64
+	Records    int
+	BlockBytes int64
 }
 
 func TestRealZstdVariantCorpus(t *testing.T) {
@@ -60,7 +60,7 @@ func TestRealZstdVariantCorpus(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if stats.Records == 0 || stats.PayloadBytes == 0 {
+			if stats.Records == 0 || stats.BlockBytes == 0 {
 				t.Fatalf("empty scan stats: %+v", stats)
 			}
 			missingFCS := issues[IssueZstdFrameMissingContentSize]
@@ -74,7 +74,7 @@ func TestRealZstdVariantCorpus(t *testing.T) {
 			if got := issues[IssueZstdFrameMissingChecksum] > 0; got != tt.wantMissingCRC {
 				t.Fatalf("missing checksum issue present = %v, want %v; issues=%+v", got, tt.wantMissingCRC, issues)
 			}
-			t.Logf("records=%d payloadBytes=%d issues=%+v", stats.Records, stats.PayloadBytes, issues)
+			t.Logf("records=%d blockBytes=%d issues=%+v", stats.Records, stats.BlockBytes, issues)
 		})
 	}
 }
@@ -88,17 +88,17 @@ func BenchmarkRealZstdVariants(b *testing.B) {
 		opts ScannerOptions
 	}{
 		{
-			name: "gzip_source_stream_payload_strict",
+			name: "gzip_source_stream_block_strict",
 			path: paths.Gzip,
 			opts: ScannerOptions{Compression: CompressionUnknown, Strict: true},
 		},
 		{
-			name: "zstd_fcs_source_stream_payload_strict",
+			name: "zstd_fcs_source_stream_block_strict",
 			path: paths.FCS,
 			opts: ScannerOptions{Compression: CompressionUnknown, Strict: true},
 		},
 		{
-			name: "zstd_no_fcs_source_stream_payload_nonstrict",
+			name: "zstd_no_fcs_source_stream_block_nonstrict",
 			path: paths.NoFCS,
 			opts: ScannerOptions{Compression: CompressionUnknown},
 		},
@@ -109,7 +109,7 @@ func BenchmarkRealZstdVariants(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				reportRealWARCStats(b, stats.Records, stats.PayloadBytes)
+				reportRealWARCStats(b, stats.Records, stats.BlockBytes)
 			}
 		})
 	}
@@ -131,7 +131,7 @@ func ensureRealZstdVariants(tb testing.TB) zstdVariantPaths {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	tb.Logf("generated zstd variants: records=%d payloadBytes=%d fcs=%s noFCS=%s", stats.Records, stats.PayloadBytes, paths.FCS, paths.NoFCS)
+	tb.Logf("generated zstd variants: records=%d blockBytes=%d fcs=%s noFCS=%s", stats.Records, stats.BlockBytes, paths.FCS, paths.NoFCS)
 	return paths
 }
 
@@ -237,13 +237,15 @@ func createVariantTemp(path string) (*os.File, string, error) {
 func writeZstdVariantRecords(scanner *Scanner, fcsOut, noFCSOut io.Writer, fcsEncoder, noFCSEncoder *zstd.Encoder) (realCorpusStats, error) {
 	var stats realCorpusStats
 	for {
-		ref, payload, err := scanner.NextPayload()
+		record, err := scanner.NextRecord()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			return stats, err
 		}
+		ref := record.Ref()
+		block := record.Block()
 
 		rawSize := ref.HeaderLen + ref.ContentLength + int64(len(warcRecordTrailer))
 		fcsEncoder.ResetContentSize(fcsOut, rawSize)
@@ -251,16 +253,16 @@ func writeZstdVariantRecords(scanner *Scanner, fcsOut, noFCSOut io.Writer, fcsEn
 		noFCSEncoder.ResetContentSize(&noFCSFrame, rawSize)
 
 		if _, err := fcsEncoder.Write(ref.RawHeader); err != nil {
-			_ = payload.Close()
+			_ = record.Close()
 			return stats, err
 		}
 		if _, err := noFCSEncoder.Write(ref.RawHeader); err != nil {
-			_ = payload.Close()
+			_ = record.Close()
 			return stats, err
 		}
 
-		n, err := io.Copy(io.MultiWriter(fcsEncoder, noFCSEncoder), payload)
-		closeErr := payload.Close()
+		n, err := io.Copy(io.MultiWriter(fcsEncoder, noFCSEncoder), block)
+		closeErr := record.Close()
 		if err != nil {
 			return stats, err
 		}
@@ -268,7 +270,7 @@ func writeZstdVariantRecords(scanner *Scanner, fcsOut, noFCSOut io.Writer, fcsEn
 			return stats, closeErr
 		}
 		if n != ref.ContentLength {
-			return stats, fmt.Errorf("payload length mismatch: copied %d bytes, expected %d", n, ref.ContentLength)
+			return stats, fmt.Errorf("block length mismatch: copied %d bytes, expected %d", n, ref.ContentLength)
 		}
 
 		if _, err := fcsEncoder.Write(warcRecordTrailer); err != nil {
@@ -292,7 +294,7 @@ func writeZstdVariantRecords(scanner *Scanner, fcsOut, noFCSOut io.Writer, fcsEn
 		}
 
 		stats.Records++
-		stats.PayloadBytes += n
+		stats.BlockBytes += n
 	}
 	if err := scanner.Err(); err != nil {
 		return stats, err
@@ -358,15 +360,16 @@ func scanRealCorpusVariant(path string, opts ScannerOptions) (stats realCorpusSt
 
 	issues = make(map[IssueCode]int)
 	for {
-		ref, payload, err := scanner.NextPayload()
+		record, err := scanner.NextRecord()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			return stats, issues, err
 		}
-		n, err := io.Copy(io.Discard, payload)
-		closeErr := payload.Close()
+		ref := record.Ref()
+		n, err := io.Copy(io.Discard, record.Block())
+		closeErr := record.Close()
 		if err != nil {
 			return stats, issues, err
 		}
@@ -374,7 +377,7 @@ func scanRealCorpusVariant(path string, opts ScannerOptions) (stats realCorpusSt
 			return stats, issues, closeErr
 		}
 		stats.Records++
-		stats.PayloadBytes += n
+		stats.BlockBytes += n
 		for _, issue := range ref.Location.Issues {
 			issues[issue.Code]++
 		}

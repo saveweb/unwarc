@@ -16,7 +16,7 @@ func (s *Scanner) resolveLocation(record Range) RecordLocation {
 	compression := s.stream.Compression()
 	switch compression {
 	case CompressionGzip, CompressionZstd:
-		return s.resolveFramedLocation(loc, record)
+		return s.resolveCompressionUnitLocation(loc, record)
 	case CompressionBzip2, CompressionXZ:
 		if s.source != nil {
 			loc.Access = AccessFromFileStart
@@ -34,17 +34,17 @@ func (s *Scanner) resolveLocation(record Range) RecordLocation {
 	}
 }
 
-func (s *Scanner) resolveFramedLocation(loc RecordLocation, record Range) RecordLocation {
-	var overlapping []Segment
-	for _, seg := range s.stream.CompletedSegments() {
-		if !seg.ProducesWARCBytes {
+func (s *Scanner) resolveCompressionUnitLocation(loc RecordLocation, record Range) RecordLocation {
+	var overlapping []CompressionUnit
+	for _, unit := range s.stream.CompletedUnits() {
+		if !unit.ProducesWARCBytes {
 			continue
 		}
-		if rangesOverlap(seg.Uncomp, record) {
-			overlapping = append(overlapping, seg)
+		if rangesOverlap(unit.Uncomp, record) {
+			overlapping = append(overlapping, unit)
 		}
 	}
-	if cur := s.stream.CurrentSegment(); cur != nil && cur.ProducesWARCBytes && rangesOverlap(cur.Uncomp, record) {
+	if cur := s.stream.CurrentUnit(); cur != nil && cur.ProducesWARCBytes && rangesOverlap(cur.Uncomp, record) {
 		overlapping = append(overlapping, *cur)
 	}
 	if len(overlapping) == 0 {
@@ -58,23 +58,23 @@ func (s *Scanner) resolveFramedLocation(loc RecordLocation, record Range) Record
 	first := overlapping[0]
 	last := overlapping[len(overlapping)-1]
 	recordEnd := record.End()
-	startsAtSegmentBoundary := record.Off == first.Uncomp.Off
-	endsAtSegmentBoundary := last.Uncomp.Valid() && recordEnd == last.Uncomp.End() && last.Comp.Size >= 0
-	coversWholeSegments := startsAtSegmentBoundary && endsAtSegmentBoundary
-	for i, seg := range overlapping {
+	startsAtUnitBoundary := record.Off == first.Uncomp.Off
+	endsAtUnitBoundary := last.Uncomp.Valid() && recordEnd == last.Uncomp.End() && last.Comp.Size >= 0
+	coversWholeUnits := startsAtUnitBoundary && endsAtUnitBoundary
+	for i, unit := range overlapping {
 		if i == 0 || i == len(overlapping)-1 {
 			continue
 		}
-		if !seg.Uncomp.Valid() || seg.Comp.Size < 0 {
-			coversWholeSegments = false
+		if !unit.Uncomp.Valid() || unit.Comp.Size < 0 {
+			coversWholeUnits = false
 			break
 		}
 	}
 
-	if coversWholeSegments {
+	if coversWholeUnits {
 		loc.Access = AccessExact
-		for _, seg := range overlapping {
-			loc.CompRanges = append(loc.CompRanges, seg.Comp)
+		for _, unit := range overlapping {
+			loc.CompRanges = append(loc.CompRanges, unit.Comp)
 		}
 		if s.stream.Compression() == CompressionGzip && len(overlapping) > 1 {
 			loc.Issues = append(loc.Issues, Issue{
@@ -90,22 +90,22 @@ func (s *Scanner) resolveFramedLocation(loc RecordLocation, record Range) Record
 		restart.Size = -1
 	}
 	loc.RestartRange = &restart
-	// RestartRange.Off is the compressed segment start. RestartUncompOff is the
+	// RestartRange.Off is the compression-unit start. RestartUncompOff is the
 	// same point expressed in the global decoded WARC stream.
 	loc.RestartUncompOff = first.Uncomp.Off
 	if s.source != nil {
-		loc.Access = AccessFromSegmentStart
+		loc.Access = AccessFromCompressionUnitStart
 	} else {
 		loc.Access = AccessStreamOnly
 	}
 
 	switch first.Kind {
-	case SegmentGzipMember:
+	case CompressionUnitGzipMember:
 		loc.Issues = append(loc.Issues, Issue{
 			Code:    IssueSolidGzipMember,
 			Message: "gzip member contains a partial record or multiple records",
 		})
-	case SegmentZstdFrame:
+	case CompressionUnitZstdFrame:
 		loc.Issues = append(loc.Issues, Issue{
 			Code:    IssueFrameContainsMultipleRecords,
 			Message: "zstd frame contains a partial record boundary or multiple records",
@@ -115,19 +115,19 @@ func (s *Scanner) resolveFramedLocation(loc RecordLocation, record Range) Record
 	return loc
 }
 
-func zstdFrameRequirementIssues(segments []Segment) []Issue {
+func zstdFrameRequirementIssues(units []CompressionUnit) []Issue {
 	var issues []Issue
-	for _, seg := range segments {
-		if seg.Kind != SegmentZstdFrame {
+	for _, unit := range units {
+		if unit.Kind != CompressionUnitZstdFrame {
 			continue
 		}
-		if !seg.ZstdHasFrameContentSize {
+		if !unit.ZstdHasFrameContentSize {
 			issues = append(issues, Issue{
 				Code:    IssueZstdFrameMissingContentSize,
 				Message: "zstd frame is missing Frame_Content_Size",
 			})
 		}
-		if !seg.ZstdHasContentChecksum {
+		if !unit.ZstdHasContentChecksum {
 			issues = append(issues, Issue{
 				Code:    IssueZstdFrameMissingChecksum,
 				Message: "zstd frame is missing Content_Checksum",

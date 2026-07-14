@@ -31,16 +31,16 @@ type seekVariantPaths struct {
 }
 
 type seekVariantStats struct {
-	Records              int
-	PayloadBytes         int64
-	SeekTableBytes       int64
-	DataFrames           int
-	PayloadSectionFrames int
-	TrailerOnlyFrames    int
-	HTTPSplitRecords     int
-	HTTPHeaderFrames     int
-	HTTPHeaderBytes      int64
-	HTTPFallbacks        int
+	Records            int
+	BlockBytes         int64
+	SeekTableBytes     int64
+	DataFrames         int
+	BlockSectionFrames int
+	TrailerOnlyFrames  int
+	HTTPSplitRecords   int
+	HTTPHeaderFrames   int
+	HTTPHeaderBytes    int64
+	HTTPFallbacks      int
 }
 
 func TestRealSeekIndexVariantCorpus(t *testing.T) {
@@ -60,13 +60,13 @@ func TestRealSeekIndexVariantCorpus(t *testing.T) {
 			if len(refs) == 0 {
 				t.Fatal("seek-indexed corpus returned no records")
 			}
-			ref := largestPayloadRef(refs)
+			ref := largestBlockRef(refs)
 			if ref == nil {
-				t.Fatal("seek-indexed corpus returned no non-empty payload records")
+				t.Fatal("seek-indexed corpus returned no non-empty block records")
 			}
-			payload := readAllFrom(t, ref.OpenPayload)
-			if int64(len(payload)) != ref.ContentLength {
-				t.Fatalf("payload length = %d, want %d", len(payload), ref.ContentLength)
+			block := readAllFrom(t, ref.OpenBlock)
+			if int64(len(block)) != ref.ContentLength {
+				t.Fatalf("block length = %d, want %d", len(block), ref.ContentLength)
 			}
 		})
 	}
@@ -91,14 +91,14 @@ func BenchmarkRealSeekIndexVariants(b *testing.B) {
 				if len(refs) == 0 {
 					b.Fatal("no refs")
 				}
-				reportRealWARCStats(b, len(refs), recordPayloadBytes(refs))
+				reportRealWARCStats(b, len(refs), recordBlockBytes(refs))
 				b.ReportMetric(float64(refs[len(refs)-1].Location.Uncomp.End()), "uncompressed_warc_bytes")
 			}
 		})
 	}
 }
 
-func BenchmarkRealSeekIndexPayloadRanges(b *testing.B) {
+func BenchmarkRealSeekIndexBlockRanges(b *testing.B) {
 	paths := ensureRealSeekVariants(b)
 
 	for _, tt := range []struct {
@@ -113,9 +113,9 @@ func BenchmarkRealSeekIndexPayloadRanges(b *testing.B) {
 	} {
 		b.Run(tt.name, func(b *testing.B) {
 			refs := scanSeekIndexRefs(b, tt.path)
-			ref := largestPayloadRef(refs)
+			ref := largestBlockRef(refs)
 			if ref == nil {
-				b.Fatal("no payload refs")
+				b.Fatal("no block refs")
 			}
 			const size = int64(16 << 10)
 			off := ref.ContentLength / 2
@@ -125,7 +125,7 @@ func BenchmarkRealSeekIndexPayloadRanges(b *testing.B) {
 			if off < 0 {
 				off = 0
 			}
-			benchmarkOpenPayloadRange(b, ref, off, size)
+			benchmarkOpenBlockRange(b, ref, off, size)
 		})
 	}
 }
@@ -133,15 +133,15 @@ func BenchmarkRealSeekIndexPayloadRanges(b *testing.B) {
 func BenchmarkRealSeekIndexHTTPBodyStartRanges(b *testing.B) {
 	paths := ensureRealSeekVariants(b)
 	splitRefs := scanSeekIndexRefs(b, paths.HTTPSplit)
-	splitRef := largestPayloadRefWithBodyFrame(splitRefs)
+	splitRef := largestBlockRefWithBodyFrame(splitRefs)
 	if splitRef == nil {
-		b.Fatal("no HTTP-split payload refs")
+		b.Fatal("no HTTP-split block refs")
 	}
 	id, ok := splitRef.Header.Get("WARC-Record-ID")
 	if !ok {
 		b.Fatal("HTTP-split ref has no WARC-Record-ID")
 	}
-	bodyOff := splitRef.Location.PayloadFrames[1].Payload.Off
+	bodyOff := splitRef.Location.BlockFrameMappings[1].Block.Off
 	const size = int64(16 << 10)
 
 	for _, tt := range []struct {
@@ -159,7 +159,7 @@ func BenchmarkRealSeekIndexHTTPBodyStartRanges(b *testing.B) {
 			if ref == nil {
 				b.Fatalf("record %s not found", id)
 			}
-			benchmarkOpenPayloadRange(b, ref, bodyOff, size)
+			benchmarkOpenBlockRange(b, ref, bodyOff, size)
 		})
 	}
 }
@@ -217,7 +217,7 @@ func markSeekVariantsRebuilt(gzipPath string, rebuilt bool) {
 	rebuiltSeekVariantPath[gzipPath] = true
 }
 
-func largestPayloadRef(refs []*RecordRef) *RecordRef {
+func largestBlockRef(refs []*RecordRef) *RecordRef {
 	var largest *RecordRef
 	for _, ref := range refs {
 		if ref == nil || ref.ContentLength == 0 {
@@ -230,13 +230,13 @@ func largestPayloadRef(refs []*RecordRef) *RecordRef {
 	return largest
 }
 
-func largestPayloadRefWithBodyFrame(refs []*RecordRef) *RecordRef {
+func largestBlockRefWithBodyFrame(refs []*RecordRef) *RecordRef {
 	var largest *RecordRef
 	for _, ref := range refs {
-		if ref == nil || len(ref.Location.PayloadFrames) < 2 {
+		if ref == nil || len(ref.Location.BlockFrameMappings) < 2 {
 			continue
 		}
-		bodyOff := ref.Location.PayloadFrames[1].Payload.Off
+		bodyOff := ref.Location.BlockFrameMappings[1].Block.Off
 		if bodyOff <= 0 || bodyOff >= ref.ContentLength {
 			continue
 		}
@@ -260,7 +260,7 @@ func findRecordRefByID(refs []*RecordRef, id string) *RecordRef {
 	return nil
 }
 
-func recordPayloadBytes(refs []*RecordRef) int64 {
+func recordBlockBytes(refs []*RecordRef) int64 {
 	var n int64
 	for _, ref := range refs {
 		if ref != nil {
@@ -270,29 +270,29 @@ func recordPayloadBytes(refs []*RecordRef) int64 {
 	return n
 }
 
-func benchmarkOpenPayloadRange(b *testing.B, ref *RecordRef, off, size int64) {
+func benchmarkOpenBlockRange(b *testing.B, ref *RecordRef, off, size int64) {
 	b.Helper()
 	if off >= ref.ContentLength {
-		b.Fatalf("range offset %d outside payload length %d", off, ref.ContentLength)
+		b.Fatalf("range offset %d outside block length %d", off, ref.ContentLength)
 	}
 	if off+size > ref.ContentLength {
 		size = ref.ContentLength - off
 	}
 	b.SetBytes(size)
-	payloadFrames := len(ref.Location.PayloadFrames)
-	overlapFrames := overlappingPayloadFrameCount(ref, off, size)
+	blockFrames := len(ref.Location.BlockFrameMappings)
+	overlapFrames := overlappingBlockFrameCount(ref, off, size)
 	b.ResetTimer()
 	b.ReportMetric(float64(size), "range_bytes")
-	b.ReportMetric(float64(ref.ContentLength), "record_payload_bytes")
-	b.ReportMetric(float64(payloadFrames), "payload_frames")
+	b.ReportMetric(float64(ref.ContentLength), "record_block_bytes")
+	b.ReportMetric(float64(blockFrames), "block_frames")
 	b.ReportMetric(float64(overlapFrames), "overlap_frames")
 	for i := 0; i < b.N; i++ {
-		payload, err := ref.OpenPayloadRange(off, size)
+		block, err := ref.OpenBlockRange(off, size)
 		if err != nil {
 			b.Fatal(err)
 		}
-		n, err := io.Copy(io.Discard, payload)
-		closeErr := payload.Close()
+		n, err := io.Copy(io.Discard, block)
+		closeErr := block.Close()
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -305,11 +305,11 @@ func benchmarkOpenPayloadRange(b *testing.B, ref *RecordRef, off, size int64) {
 	}
 }
 
-func overlappingPayloadFrameCount(ref *RecordRef, off, size int64) int {
+func overlappingBlockFrameCount(ref *RecordRef, off, size int64) int {
 	want := Range{Off: off, Size: size}
 	var n int
-	for _, frame := range ref.Location.PayloadFrames {
-		if rangesOverlap(frame.Payload, want) {
+	for _, frame := range ref.Location.BlockFrameMappings {
+		if rangesOverlap(frame.Block, want) {
 			n++
 		}
 	}
@@ -330,7 +330,7 @@ func realSeekVariantPaths(gzipPath string) seekVariantPaths {
 	}
 }
 
-func writeRealSeekVariant(gzipPath, outPath string, payloadChunkSize int64, httpSplit bool) (stats seekVariantStats, err error) {
+func writeRealSeekVariant(gzipPath, outPath string, blockChunkSize int64, httpSplit bool) (stats seekVariantStats, err error) {
 	in, err := os.Open(gzipPath)
 	if err != nil {
 		return seekVariantStats{}, err
@@ -369,7 +369,7 @@ func writeRealSeekVariant(gzipPath, outPath string, payloadChunkSize int64, http
 		err = errors.Join(err, enc.Close())
 	}()
 
-	stats, err = writeSeekIndexedRecords(scanner, out, enc, payloadChunkSize, httpSplit)
+	stats, err = writeSeekIndexedRecords(scanner, out, enc, blockChunkSize, httpSplit)
 	if closeErr := out.Close(); err == nil {
 		err = closeErr
 	}
@@ -382,22 +382,24 @@ func writeRealSeekVariant(gzipPath, outPath string, payloadChunkSize int64, http
 	return stats, nil
 }
 
-func writeSeekIndexedRecords(scanner *Scanner, out *os.File, enc *zstd.Encoder, payloadChunkSize int64, httpSplit bool) (seekVariantStats, error) {
+func writeSeekIndexedRecords(scanner *Scanner, out *os.File, enc *zstd.Encoder, blockChunkSize int64, httpSplit bool) (seekVariantStats, error) {
 	var stats seekVariantStats
 	for {
-		ref, payload, err := scanner.NextPayload()
+		record, err := scanner.NextRecord()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			return stats, err
 		}
+		ref := record.Ref()
+		block := record.Block()
 
 		entries := make([]zstdSeekEntry, 0, 4)
 		if ref.ContentLength == 0 {
 			raw := append(append([]byte{}, ref.RawHeader...), warcRecordTrailer...)
 			entry, err := writeSeekVariantFrame(out, enc, raw, int64(len(raw)))
-			closeErr := payload.Close()
+			closeErr := record.Close()
 			if err != nil {
 				return stats, err
 			}
@@ -417,35 +419,35 @@ func writeSeekIndexedRecords(scanner *Scanner, out *os.File, enc *zstd.Encoder, 
 
 		headerEntry, err := writeSeekVariantFrame(out, enc, ref.RawHeader, int64(len(ref.RawHeader)))
 		if err != nil {
-			_ = payload.Close()
+			_ = record.Close()
 			return stats, err
 		}
 		entries = append(entries, headerEntry)
 		stats.DataFrames++
 
-		payloadResult, err := writeSeekVariantPayloadFramesForRecord(out, enc, ref, payload, payloadChunkSize, httpSplit)
-		closeErr := payload.Close()
+		blockResult, err := writeSeekVariantBlockFramesForRecord(out, enc, ref, block, blockChunkSize, httpSplit)
+		closeErr := record.Close()
 		if err != nil {
 			return stats, err
 		}
 		if closeErr != nil {
 			return stats, closeErr
 		}
-		entries = append(entries, payloadResult.entries...)
+		entries = append(entries, blockResult.entries...)
 		if len(entries) > maxRecordLocalSeekFrames {
 			return stats, fmt.Errorf("record-local seek table has %d frames, max %d", len(entries), maxRecordLocalSeekFrames)
 		}
-		stats.DataFrames += len(payloadResult.entries)
-		stats.PayloadSectionFrames += len(payloadResult.entries)
-		if payloadResult.trailerOnly {
+		stats.DataFrames += len(blockResult.entries)
+		stats.BlockSectionFrames += len(blockResult.entries)
+		if blockResult.trailerOnly {
 			stats.TrailerOnlyFrames++
 		}
-		if payloadResult.httpSplit {
+		if blockResult.httpSplit {
 			stats.HTTPSplitRecords++
 			stats.HTTPHeaderFrames++
-			stats.HTTPHeaderBytes += payloadResult.httpHeaderBytes
+			stats.HTTPHeaderBytes += blockResult.httpHeaderBytes
 		}
-		if payloadResult.httpFallback {
+		if blockResult.httpFallback {
 			stats.HTTPFallbacks++
 		}
 
@@ -455,7 +457,7 @@ func writeSeekIndexedRecords(scanner *Scanner, out *os.File, enc *zstd.Encoder, 
 		}
 		stats.SeekTableBytes += int64(len(table))
 		stats.Records++
-		stats.PayloadBytes += ref.ContentLength
+		stats.BlockBytes += ref.ContentLength
 	}
 	if err := scanner.Err(); err != nil {
 		return stats, err
@@ -463,7 +465,7 @@ func writeSeekIndexedRecords(scanner *Scanner, out *os.File, enc *zstd.Encoder, 
 	return stats, nil
 }
 
-type seekPayloadFrameResult struct {
+type seekBlockFrameResult struct {
 	entries         []zstdSeekEntry
 	trailerOnly     bool
 	httpSplit       bool
@@ -471,35 +473,35 @@ type seekPayloadFrameResult struct {
 	httpFallback    bool
 }
 
-func writeSeekVariantPayloadFramesForRecord(out *os.File, enc *zstd.Encoder, ref *RecordRef, payload io.Reader, chunkSize int64, httpSplit bool) (seekPayloadFrameResult, error) {
+func writeSeekVariantBlockFramesForRecord(out *os.File, enc *zstd.Encoder, ref *RecordRef, block io.Reader, chunkSize int64, httpSplit bool) (seekBlockFrameResult, error) {
 	if !httpSplit || ref.ContentLength == 0 || !isHTTPWARCRecord(ref) {
-		entries, trailerOnly, err := writeSeekVariantPayloadFrames(out, enc, payload, ref.ContentLength, chunkSize)
-		return seekPayloadFrameResult{entries: entries, trailerOnly: trailerOnly}, err
+		entries, trailerOnly, err := writeSeekVariantBlockFrames(out, enc, block, ref.ContentLength, chunkSize)
+		return seekBlockFrameResult{entries: entries, trailerOnly: trailerOnly}, err
 	}
 
-	httpHeader, body, ok, err := splitHTTPPayloadHeader(payload, ref.ContentLength)
+	httpHeader, body, ok, err := splitHTTPBlockHeader(block, ref.ContentLength)
 	if err != nil {
-		return seekPayloadFrameResult{}, err
+		return seekBlockFrameResult{}, err
 	}
 	if !ok {
-		entries, trailerOnly, err := writeSeekVariantPayloadFrames(out, enc, body, ref.ContentLength, chunkSize)
-		return seekPayloadFrameResult{entries: entries, trailerOnly: trailerOnly, httpFallback: true}, err
+		entries, trailerOnly, err := writeSeekVariantBlockFrames(out, enc, body, ref.ContentLength, chunkSize)
+		return seekBlockFrameResult{entries: entries, trailerOnly: trailerOnly, httpFallback: true}, err
 	}
 
 	entries := make([]zstdSeekEntry, 0, 3)
 	headerEntry, err := writeSeekVariantFrame(out, enc, httpHeader, int64(len(httpHeader)))
 	if err != nil {
-		return seekPayloadFrameResult{}, err
+		return seekBlockFrameResult{}, err
 	}
 	entries = append(entries, headerEntry)
 
 	bodySize := ref.ContentLength - int64(len(httpHeader))
-	bodyEntries, trailerOnly, err := writeSeekVariantPayloadFrames(out, enc, body, bodySize, chunkSize)
+	bodyEntries, trailerOnly, err := writeSeekVariantBlockFrames(out, enc, body, bodySize, chunkSize)
 	if err != nil {
-		return seekPayloadFrameResult{}, err
+		return seekBlockFrameResult{}, err
 	}
 	entries = append(entries, bodyEntries...)
-	return seekPayloadFrameResult{
+	return seekBlockFrameResult{
 		entries:         entries,
 		trailerOnly:     trailerOnly,
 		httpSplit:       true,
@@ -507,8 +509,8 @@ func writeSeekVariantPayloadFramesForRecord(out *os.File, enc *zstd.Encoder, ref
 	}, nil
 }
 
-func writeSeekVariantPayloadFrames(out *os.File, enc *zstd.Encoder, payload io.Reader, contentLength, chunkSize int64) ([]zstdSeekEntry, bool, error) {
-	frameCount, err := seekVariantPayloadFrameCount(contentLength, chunkSize)
+func writeSeekVariantBlockFrames(out *os.File, enc *zstd.Encoder, block io.Reader, contentLength, chunkSize int64) ([]zstdSeekEntry, bool, error) {
+	frameCount, err := seekVariantBlockFrameCount(contentLength, chunkSize)
 	if err != nil {
 		return nil, false, err
 	}
@@ -517,7 +519,7 @@ func writeSeekVariantPayloadFrames(out *os.File, enc *zstd.Encoder, payload io.R
 		return []zstdSeekEntry{entry}, true, err
 	}
 	if chunkSize <= 0 || contentLength <= chunkSize {
-		frame := io.MultiReader(payload, bytes.NewReader(warcRecordTrailer))
+		frame := io.MultiReader(block, bytes.NewReader(warcRecordTrailer))
 		entry, err := writeSeekVariantFrameFromReader(out, enc, frame, contentLength+int64(len(warcRecordTrailer)))
 		return []zstdSeekEntry{entry}, false, err
 	}
@@ -529,7 +531,7 @@ func writeSeekVariantPayloadFrames(out *os.File, enc *zstd.Encoder, payload io.R
 		if remaining < n {
 			n = remaining
 		}
-		entry, err := writeSeekVariantFrameFromReader(out, enc, io.LimitReader(payload, n), n)
+		entry, err := writeSeekVariantFrameFromReader(out, enc, io.LimitReader(block, n), n)
 		if err != nil {
 			return nil, false, err
 		}
@@ -544,16 +546,16 @@ func writeSeekVariantPayloadFrames(out *os.File, enc *zstd.Encoder, payload io.R
 	return entries, true, nil
 }
 
-func seekVariantPayloadFrameCount(contentLength, chunkSize int64) (int, error) {
+func seekVariantBlockFrameCount(contentLength, chunkSize int64) (int, error) {
 	if contentLength < 0 {
-		return 0, fmt.Errorf("negative payload length %d", contentLength)
+		return 0, fmt.Errorf("negative block length %d", contentLength)
 	}
 	var frames int64 = 1
 	if contentLength > 0 && chunkSize > 0 && contentLength > chunkSize {
 		frames = (contentLength+chunkSize-1)/chunkSize + 1
 	}
 	if frames > maxRecordLocalSeekFrames {
-		return 0, fmt.Errorf("payload uses %d seek frames, max %d", frames, maxRecordLocalSeekFrames)
+		return 0, fmt.Errorf("block uses %d seek frames, max %d", frames, maxRecordLocalSeekFrames)
 	}
 	return int(frames), nil
 }
@@ -567,10 +569,10 @@ func isHTTPWARCRecord(ref *RecordRef) bool {
 	return strings.EqualFold(strings.TrimSpace(mediaType), "application/http")
 }
 
-func splitHTTPPayloadHeader(payload io.Reader, contentLength int64) ([]byte, io.Reader, bool, error) {
+func splitHTTPBlockHeader(block io.Reader, contentLength int64) ([]byte, io.Reader, bool, error) {
 	const maxHTTPHeaderProbe = int64(256 << 10)
 	if contentLength <= 0 {
-		return nil, payload, false, nil
+		return nil, block, false, nil
 	}
 
 	probeLimit := contentLength
@@ -590,18 +592,18 @@ func splitHTTPPayloadHeader(payload io.Reader, contentLength int64) ([]byte, io.
 		if remaining := probeLimit - probed; remaining < want {
 			want = remaining
 		}
-		n, err := payload.Read(tmp[:want])
+		n, err := block.Read(tmp[:want])
 		if n > 0 {
 			buf = append(buf, tmp[:n]...)
 			probed += int64(n)
-			end, matched, needMore := httpPayloadSplitDecision(buf)
+			end, matched, needMore := httpBlockSplitDecision(buf)
 			if !needMore {
-				body := io.MultiReader(bytes.NewReader(buf[end:]), payload)
+				body := io.MultiReader(bytes.NewReader(buf[end:]), block)
 				if matched {
 					header := append([]byte(nil), buf[:end]...)
 					return header, body, true, nil
 				}
-				return nil, io.MultiReader(bytes.NewReader(buf), payload), false, nil
+				return nil, io.MultiReader(bytes.NewReader(buf), block), false, nil
 			}
 		}
 		if err != nil {
@@ -611,11 +613,11 @@ func splitHTTPPayloadHeader(payload io.Reader, contentLength int64) ([]byte, io.
 			return nil, nil, false, err
 		}
 	}
-	return nil, io.MultiReader(bytes.NewReader(buf), payload), false, nil
+	return nil, io.MultiReader(bytes.NewReader(buf), block), false, nil
 }
 
-func httpPayloadSplitDecision(buf []byte) (end int, matched bool, needMore bool) {
-	end = httpPayloadHeaderEndFrom(buf, 0)
+func httpBlockSplitDecision(buf []byte) (end int, matched bool, needMore bool) {
+	end = httpBlockHeaderEndFrom(buf, 0)
 	if end < 0 {
 		return 0, false, true
 	}
@@ -624,7 +626,7 @@ func httpPayloadSplitDecision(buf []byte) (end int, matched bool, needMore bool)
 	}
 
 	for headerStart := 0; isProvisionalHTTPResponse(buf[headerStart:end]); {
-		nextEnd := httpPayloadHeaderEndFrom(buf, end)
+		nextEnd := httpBlockHeaderEndFrom(buf, end)
 		if nextEnd < 0 {
 			return 0, true, true
 		}
@@ -637,7 +639,7 @@ func httpPayloadSplitDecision(buf []byte) (end int, matched bool, needMore bool)
 	return end, true, false
 }
 
-func httpPayloadHeaderEndFrom(buf []byte, start int) int {
+func httpBlockHeaderEndFrom(buf []byte, start int) int {
 	if start >= len(buf) {
 		return -1
 	}
@@ -673,56 +675,56 @@ func isProvisionalHTTPResponse(header []byte) bool {
 	return len(status) == 3 && status[0] == '1' && !bytes.Equal(status, []byte("101"))
 }
 
-func TestSplitHTTPPayloadHeader(t *testing.T) {
+func TestSplitHTTPBlockHeader(t *testing.T) {
 	oversizeHeader := append(bytes.Repeat([]byte("A"), 257<<10), []byte("\r\n\r\nbody")...)
 	for _, tt := range []struct {
 		name       string
-		payload    []byte
+		block      []byte
 		wantHeader string
 		wantBody   string
 		wantSplit  bool
 	}{
 		{
 			name:       "response",
-			payload:    []byte("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nhello"),
+			block:      []byte("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nhello"),
 			wantHeader: "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n",
 			wantBody:   "hello",
 			wantSplit:  true,
 		},
 		{
 			name:       "request",
-			payload:    []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"),
+			block:      []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"),
 			wantHeader: "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n",
 			wantSplit:  true,
 		},
 		{
 			name:       "lf-only",
-			payload:    []byte("HTTP/1.1 204 No Content\nServer: test\n\n"),
+			block:      []byte("HTTP/1.1 204 No Content\nServer: test\n\n"),
 			wantHeader: "HTTP/1.1 204 No Content\nServer: test\n\n",
 			wantSplit:  true,
 		},
 		{
 			name:       "provisional-response",
-			payload:    []byte("HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody"),
+			block:      []byte("HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody"),
 			wantHeader: "HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n",
 			wantBody:   "body",
 			wantSplit:  true,
 		},
 		{
 			name:      "fallback-non-http",
-			payload:   []byte("not-http\r\n\r\nstill payload"),
-			wantBody:  "not-http\r\n\r\nstill payload",
+			block:     []byte("not-http\r\n\r\nstill block"),
+			wantBody:  "not-http\r\n\r\nstill block",
 			wantSplit: false,
 		},
 		{
 			name:      "fallback-over-probe-limit",
-			payload:   oversizeHeader,
+			block:     oversizeHeader,
 			wantBody:  string(oversizeHeader),
 			wantSplit: false,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			header, body, ok, err := splitHTTPPayloadHeader(bytes.NewReader(tt.payload), int64(len(tt.payload)))
+			header, body, ok, err := splitHTTPBlockHeader(bytes.NewReader(tt.block), int64(len(tt.block)))
 			if err != nil {
 				t.Fatal(err)
 			}

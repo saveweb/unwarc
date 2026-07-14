@@ -12,79 +12,79 @@ import (
 	"github.com/ulikunitz/xz"
 )
 
-type segmentStream interface {
+type compressionStream interface {
 	io.Reader
 	Compression() Compression
-	CompletedSegments() []Segment
-	CurrentSegment() *Segment
+	CompletedUnits() []CompressionUnit
+	CurrentUnit() *CompressionUnit
 	UncompOffset() int64
 	Sync() error
 }
 
-func newSegmentStream(r io.Reader, compression Compression, maxBufferedZstdFrameSize int64, strict bool) (segmentStream, error) {
+func newCompressionStream(r io.Reader, compression Compression, maxBufferedZstdFrameSize int64, strict bool) (compressionStream, error) {
 	cr := newCountingReader(r)
 	switch compression {
 	case CompressionPlain:
-		return &plainSegmentStream{cr: cr}, nil
+		return &plainCompressionStream{cr: cr}, nil
 	case CompressionGzip:
-		return newGzipSegmentStream(cr)
+		return newGzipCompressionStream(cr)
 	case CompressionZstd:
-		return newZstdSegmentStream(cr, maxBufferedZstdFrameSize, strict)
+		return newZstdCompressionStream(cr, maxBufferedZstdFrameSize, strict)
 	case CompressionBzip2:
-		return &wholeStreamSegmentStream{
+		return &wholeCompressionStream{
 			cr:          cr,
 			reader:      bzip2.NewReader(cr),
 			compression: CompressionBzip2,
-			kind:        SegmentBzip2Stream,
+			kind:        CompressionUnitBzip2Stream,
 		}, nil
 	case CompressionXZ:
 		xr, err := xz.ReaderConfig{SingleStream: true}.NewReader(cr)
 		if err != nil {
 			return nil, err
 		}
-		return &wholeStreamSegmentStream{
+		return &wholeCompressionStream{
 			cr:          cr,
 			reader:      xr,
 			compression: CompressionXZ,
-			kind:        SegmentXZStream,
+			kind:        CompressionUnitXZStream,
 		}, nil
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedCompression, compression)
 	}
 }
 
-type plainSegmentStream struct {
+type plainCompressionStream struct {
 	cr     *countingReader
 	uncomp int64
 }
 
-func (s *plainSegmentStream) Read(p []byte) (int, error) {
+func (s *plainCompressionStream) Read(p []byte) (int, error) {
 	n, err := s.cr.Read(p)
 	s.uncomp += int64(n)
 	return n, err
 }
 
-func (s *plainSegmentStream) Compression() Compression     { return CompressionPlain }
-func (s *plainSegmentStream) CompletedSegments() []Segment { return nil }
-func (s *plainSegmentStream) CurrentSegment() *Segment     { return nil }
-func (s *plainSegmentStream) UncompOffset() int64          { return s.uncomp }
-func (s *plainSegmentStream) Sync() error                  { return nil }
+func (s *plainCompressionStream) Compression() Compression          { return CompressionPlain }
+func (s *plainCompressionStream) CompletedUnits() []CompressionUnit { return nil }
+func (s *plainCompressionStream) CurrentUnit() *CompressionUnit     { return nil }
+func (s *plainCompressionStream) UncompOffset() int64               { return s.uncomp }
+func (s *plainCompressionStream) Sync() error                       { return nil }
 
-type wholeStreamSegmentStream struct {
+type wholeCompressionStream struct {
 	cr          *countingReader
 	reader      io.Reader
 	compression Compression
-	kind        SegmentKind
-	current     *Segment
-	completed   []Segment
+	kind        CompressionUnitKind
+	current     *CompressionUnit
+	completed   []CompressionUnit
 	uncomp      int64
 	started     bool
 }
 
-func (s *wholeStreamSegmentStream) Read(p []byte) (int, error) {
+func (s *wholeCompressionStream) Read(p []byte) (int, error) {
 	if !s.started {
 		s.started = true
-		s.current = &Segment{
+		s.current = &CompressionUnit{
 			Kind:                   s.kind,
 			Comp:                   Range{Off: 0, Size: -1},
 			Uncomp:                 Range{Off: s.uncomp, Size: 0},
@@ -98,7 +98,7 @@ func (s *wholeStreamSegmentStream) Read(p []byte) (int, error) {
 		s.current.Uncomp.Size += int64(n)
 	}
 	if s.compression == CompressionXZ && isXZUnexpectedData(err) {
-		err = fmt.Errorf("%w: %s", ErrSegmentedCompressionNotImplemented, s.compression)
+		err = fmt.Errorf("%w: %s", ErrCompressionUnitAccessNotImplemented, s.compression)
 	}
 	if err == io.EOF && s.current != nil {
 		s.current.Comp.Size = s.cr.Tell() - s.current.Comp.Off
@@ -112,26 +112,26 @@ func isXZUnexpectedData(err error) bool {
 	return err != nil && err.Error() == "xz: unexpected data after stream"
 }
 
-func (s *wholeStreamSegmentStream) Compression() Compression     { return s.compression }
-func (s *wholeStreamSegmentStream) CompletedSegments() []Segment { return s.completed }
-func (s *wholeStreamSegmentStream) CurrentSegment() *Segment     { return s.current }
-func (s *wholeStreamSegmentStream) UncompOffset() int64          { return s.uncomp }
-func (s *wholeStreamSegmentStream) Sync() error                  { return nil }
+func (s *wholeCompressionStream) Compression() Compression          { return s.compression }
+func (s *wholeCompressionStream) CompletedUnits() []CompressionUnit { return s.completed }
+func (s *wholeCompressionStream) CurrentUnit() *CompressionUnit     { return s.current }
+func (s *wholeCompressionStream) UncompOffset() int64               { return s.uncomp }
+func (s *wholeCompressionStream) Sync() error                       { return nil }
 
-type gzipSegmentStream struct {
+type gzipCompressionStream struct {
 	cr        *countingReader
 	gz        *gzip.Reader
-	current   *Segment
-	completed []Segment
+	current   *CompressionUnit
+	completed []CompressionUnit
 	uncomp    int64
 	eof       bool
 }
 
-func newGzipSegmentStream(cr *countingReader) (*gzipSegmentStream, error) {
-	return &gzipSegmentStream{cr: cr}, nil
+func newGzipCompressionStream(cr *countingReader) (*gzipCompressionStream, error) {
+	return &gzipCompressionStream{cr: cr}, nil
 }
 
-func (s *gzipSegmentStream) startMember() error {
+func (s *gzipCompressionStream) startMember() error {
 	if s.eof {
 		return io.EOF
 	}
@@ -146,8 +146,8 @@ func (s *gzipSegmentStream) startMember() error {
 	}
 	gz.Multistream(false)
 	s.gz = gz
-	s.current = &Segment{
-		Kind:                   SegmentGzipMember,
+	s.current = &CompressionUnit{
+		Kind:                   CompressionUnitGzipMember,
 		Comp:                   Range{Off: off, Size: -1},
 		Uncomp:                 Range{Off: s.uncomp, Size: 0},
 		ProducesWARCBytes:      true,
@@ -156,7 +156,7 @@ func (s *gzipSegmentStream) startMember() error {
 	return nil
 }
 
-func (s *gzipSegmentStream) finishMember() error {
+func (s *gzipCompressionStream) finishMember() error {
 	if s.gz != nil {
 		if err := s.gz.Close(); err != nil {
 			return err
@@ -171,7 +171,7 @@ func (s *gzipSegmentStream) finishMember() error {
 	return nil
 }
 
-func (s *gzipSegmentStream) Read(p []byte) (int, error) {
+func (s *gzipCompressionStream) Read(p []byte) (int, error) {
 	for {
 		if s.gz == nil {
 			if err := s.startMember(); err != nil {
@@ -196,22 +196,22 @@ func (s *gzipSegmentStream) Read(p []byte) (int, error) {
 	}
 }
 
-func (s *gzipSegmentStream) Compression() Compression     { return CompressionGzip }
-func (s *gzipSegmentStream) CompletedSegments() []Segment { return s.completed }
-func (s *gzipSegmentStream) CurrentSegment() *Segment     { return s.current }
-func (s *gzipSegmentStream) UncompOffset() int64          { return s.uncomp }
-func (s *gzipSegmentStream) Sync() error                  { return nil }
-func (s *gzipSegmentStream) PruneCompletedBefore(off int64) {
-	s.completed = pruneCompletedSegments(s.completed, off)
+func (s *gzipCompressionStream) Compression() Compression          { return CompressionGzip }
+func (s *gzipCompressionStream) CompletedUnits() []CompressionUnit { return s.completed }
+func (s *gzipCompressionStream) CurrentUnit() *CompressionUnit     { return s.current }
+func (s *gzipCompressionStream) UncompOffset() int64               { return s.uncomp }
+func (s *gzipCompressionStream) Sync() error                       { return nil }
+func (s *gzipCompressionStream) PruneCompletedBefore(off int64) {
+	s.completed = pruneCompletedUnits(s.completed, off)
 }
 
-type zstdSegmentStream struct {
+type zstdCompressionStream struct {
 	cr                   *countingReader
 	decoder              *zstd.Decoder
 	streamDecoder        *zstd.Decoder
 	streaming            bool
-	current              *Segment
-	completed            []Segment
+	current              *CompressionUnit
+	completed            []CompressionUnit
 	uncomp               int64
 	dicts                [][]byte
 	compressed           []byte
@@ -228,15 +228,15 @@ type zstdSegmentStream struct {
 	sawExtension         bool
 }
 
-func newZstdSegmentStream(cr *countingReader, maxBufferedFrameSize int64, strict bool) (*zstdSegmentStream, error) {
-	return &zstdSegmentStream{
+func newZstdCompressionStream(cr *countingReader, maxBufferedFrameSize int64, strict bool) (*zstdCompressionStream, error) {
+	return &zstdCompressionStream{
 		cr:                   cr,
 		maxBufferedFrameSize: maxBufferedFrameSize,
 		strict:               strict,
 	}, nil
 }
 
-func (s *zstdSegmentStream) startFrame() error {
+func (s *zstdCompressionStream) startFrame() error {
 	for {
 		off := s.cr.Tell()
 		magic, err := readMagic(s.cr)
@@ -250,8 +250,8 @@ func (s *zstdSegmentStream) startFrame() error {
 			fr := newZstdFrameCompressedReader(s.cr, magic)
 			var meta zstdFrameMetadata
 			var headerSeen bool
-			current := &Segment{
-				Kind:                     SegmentZstdFrame,
+			current := &CompressionUnit{
+				Kind:                     CompressionUnitZstdFrame,
 				Comp:                     Range{Off: off, Size: -1},
 				Uncomp:                   Range{Off: s.uncomp, Size: 0},
 				ProducesWARCBytes:        true,
@@ -313,8 +313,8 @@ func (s *zstdSegmentStream) startFrame() error {
 				return err
 			}
 			s.dicts = append(s.dicts, dict)
-			s.completed = append(s.completed, Segment{
-				Kind:                   SegmentZstdDict,
+			s.completed = append(s.completed, CompressionUnit{
+				Kind:                   CompressionUnitZstdDict,
 				Comp:                   Range{Off: off, Size: s.cr.Tell() - off},
 				ProducesWARCBytes:      false,
 				IndependentlyDecodable: false,
@@ -329,8 +329,8 @@ func (s *zstdSegmentStream) startFrame() error {
 			if err := skipSkippablePayload(s.cr); err != nil {
 				return err
 			}
-			s.completed = append(s.completed, Segment{
-				Kind:                   SegmentZstdSkippable,
+			s.completed = append(s.completed, CompressionUnit{
+				Kind:                   CompressionUnitZstdSkippable,
 				Comp:                   Range{Off: off, Size: s.cr.Tell() - off},
 				ProducesWARCBytes:      false,
 				IndependentlyDecodable: false,
@@ -343,7 +343,7 @@ func (s *zstdSegmentStream) startFrame() error {
 	}
 }
 
-func (s *zstdSegmentStream) finishFrame() {
+func (s *zstdCompressionStream) finishFrame() {
 	if s.current != nil {
 		size := s.pendingComp
 		if size <= 0 {
@@ -356,7 +356,7 @@ func (s *zstdSegmentStream) finishFrame() {
 	s.pendingComp = 0
 }
 
-func (s *zstdSegmentStream) Read(p []byte) (int, error) {
+func (s *zstdCompressionStream) Read(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
@@ -416,7 +416,7 @@ func (s *zstdSegmentStream) Read(p []byte) (int, error) {
 	}
 }
 
-func (s *zstdSegmentStream) startStreamingFrame(fr *zstdFrameCompressedReader, prefix []byte) error {
+func (s *zstdCompressionStream) startStreamingFrame(fr *zstdFrameCompressedReader, prefix []byte) error {
 	reader := io.MultiReader(bytes.NewReader(prefix), fr)
 	if s.streamDecoder == nil {
 		decoder, err := newZstdDecoder(reader, s.dicts)
@@ -436,7 +436,7 @@ func (s *zstdSegmentStream) startStreamingFrame(fr *zstdFrameCompressedReader, p
 	return nil
 }
 
-func (s *zstdSegmentStream) decodeFrame(frame []byte) ([]byte, error) {
+func (s *zstdCompressionStream) decodeFrame(frame []byte) ([]byte, error) {
 	if s.decoder == nil {
 		dec, err := newZstdDecoder(nil, s.dicts)
 		if err != nil {
@@ -452,11 +452,11 @@ func (s *zstdSegmentStream) decodeFrame(frame []byte) ([]byte, error) {
 	return s.decoded, nil
 }
 
-func (s *zstdSegmentStream) Compression() Compression     { return CompressionZstd }
-func (s *zstdSegmentStream) CompletedSegments() []Segment { return s.completed }
-func (s *zstdSegmentStream) CurrentSegment() *Segment     { return s.current }
-func (s *zstdSegmentStream) UncompOffset() int64          { return s.uncomp }
-func (s *zstdSegmentStream) PrefixDictionaries() [][]byte {
+func (s *zstdCompressionStream) Compression() Compression          { return CompressionZstd }
+func (s *zstdCompressionStream) CompletedUnits() []CompressionUnit { return s.completed }
+func (s *zstdCompressionStream) CurrentUnit() *CompressionUnit     { return s.current }
+func (s *zstdCompressionStream) UncompOffset() int64               { return s.uncomp }
+func (s *zstdCompressionStream) PrefixDictionaries() [][]byte {
 	if len(s.dicts) == 0 {
 		return nil
 	}
@@ -465,7 +465,7 @@ func (s *zstdSegmentStream) PrefixDictionaries() [][]byte {
 	return dicts
 }
 
-func (s *zstdSegmentStream) Sync() error {
+func (s *zstdCompressionStream) Sync() error {
 	if !s.streaming || len(s.probed) > 0 {
 		return nil
 	}
@@ -492,7 +492,7 @@ func (s *zstdSegmentStream) Sync() error {
 	return nil
 }
 
-func (s *zstdSegmentStream) Close() error {
+func (s *zstdCompressionStream) Close() error {
 	if s.decoder != nil {
 		s.decoder.Close()
 		s.decoder = nil
@@ -511,7 +511,7 @@ func (s *zstdSegmentStream) Close() error {
 	return nil
 }
 
-func (s *zstdSegmentStream) finishStreamingFrame() {
+func (s *zstdCompressionStream) finishStreamingFrame() {
 	if s.streamDecoder != nil {
 		_ = s.streamDecoder.Reset(nil)
 	}
@@ -522,7 +522,7 @@ func (s *zstdSegmentStream) finishStreamingFrame() {
 	s.finishFrame()
 }
 
-func (s *zstdSegmentStream) clearStreamingFrame() {
+func (s *zstdCompressionStream) clearStreamingFrame() {
 	if s.streamDecoder != nil {
 		_ = s.streamDecoder.Reset(nil)
 	}
@@ -532,8 +532,8 @@ func (s *zstdSegmentStream) clearStreamingFrame() {
 	s.probeErr = nil
 }
 
-func (s *zstdSegmentStream) PruneCompletedBefore(off int64) {
-	s.completed = pruneCompletedSegments(s.completed, off)
+func (s *zstdCompressionStream) PruneCompletedBefore(off int64) {
+	s.completed = pruneCompletedUnits(s.completed, off)
 }
 
 func newZstdDecoder(r io.Reader, dicts [][]byte) (*zstd.Decoder, error) {
@@ -576,21 +576,21 @@ func strictZstdFrameRequirementError(meta zstdFrameMetadata) error {
 	}
 }
 
-func pruneCompletedSegments(segments []Segment, off int64) []Segment {
+func pruneCompletedUnits(units []CompressionUnit, off int64) []CompressionUnit {
 	keep := 0
-	for keep < len(segments) {
-		end := segments[keep].Uncomp.End()
+	for keep < len(units) {
+		end := units[keep].Uncomp.End()
 		if end < 0 || end > off {
 			break
 		}
 		keep++
 	}
 	if keep == 0 {
-		return segments
+		return units
 	}
-	copy(segments, segments[keep:])
-	clear(segments[len(segments)-keep:])
-	return segments[:len(segments)-keep]
+	copy(units, units[keep:])
+	clear(units[len(units)-keep:])
+	return units[:len(units)-keep]
 }
 
 const (

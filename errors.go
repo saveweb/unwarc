@@ -31,9 +31,9 @@ var (
 	// ErrUnsupportedCompression reports an unknown compression enum value.
 	ErrUnsupportedCompression = errors.New("unsupported compression")
 
-	// ErrSegmentedCompressionNotImplemented reports unsupported independent
-	// segment access for bzip2/xz compressed records.
-	ErrSegmentedCompressionNotImplemented = errors.New("independent bzip2/xz compressed segment access is not implemented")
+	// ErrCompressionUnitAccessNotImplemented reports unsupported independent
+	// compression-unit access for bzip2/xz compressed records.
+	ErrCompressionUnitAccessNotImplemented = errors.New("independent bzip2/xz compression-unit access is not implemented")
 
 	// ErrInvalidWARCZstd reports a WARC-zstd layout violation in strict mode.
 	ErrInvalidWARCZstd = errors.New("invalid WARC-zstd")

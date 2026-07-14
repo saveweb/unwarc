@@ -58,7 +58,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 			path: "gowarc/gowarc-solid-gzip.warc.gz",
 			nonStrict: corpusExpectation{
 				records: 10,
-				access:  map[AccessMode]int{AccessFromSegmentStart: 10},
+				access:  map[AccessMode]int{AccessFromCompressionUnitStart: 10},
 				issues:  map[IssueCode]int{IssueSolidGzipMember: 10},
 			},
 		},
@@ -132,7 +132,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 			path: "gowarc/gowarc-corrupted-mid-record.warc.gz.open",
 			nonStrict: corpusExpectation{
 				records: 12,
-				access:  map[AccessMode]int{AccessFromSegmentStart: 12},
+				access:  map[AccessMode]int{AccessFromCompressionUnitStart: 12},
 				issues:  map[IssueCode]int{IssueSolidGzipMember: 12},
 				errIs:   gzip.ErrHeader,
 			},
@@ -314,9 +314,9 @@ func assertLazyReadable(t *testing.T, refs []*RecordRef, limit int) {
 		if int64(len(raw)) != ref.Location.Uncomp.Size {
 			t.Fatalf("record %d raw bytes = %d, want %d", i, len(raw), ref.Location.Uncomp.Size)
 		}
-		payload := readAllFrom(t, ref.OpenPayload)
-		if int64(len(payload)) != ref.ContentLength {
-			t.Fatalf("record %d payload bytes = %d, want %d", i, len(payload), ref.ContentLength)
+		block := readAllFrom(t, ref.OpenBlock)
+		if int64(len(block)) != ref.ContentLength {
+			t.Fatalf("record %d block bytes = %d, want %d", i, len(block), ref.ContentLength)
 		}
 	}
 }
@@ -325,8 +325,8 @@ func assertLazyPrefixReadable(t *testing.T, ref *RecordRef) {
 	t.Helper()
 	const prefixLimit = 4096
 	for name, open := range map[string]func() (io.ReadCloser, error){
-		"raw":     ref.OpenRaw,
-		"payload": ref.OpenPayload,
+		"raw":   ref.OpenRaw,
+		"block": ref.OpenBlock,
 	} {
 		rc, err := open()
 		if err != nil {

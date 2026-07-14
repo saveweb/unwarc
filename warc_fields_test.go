@@ -186,7 +186,7 @@ func TestParseWARCFieldsFromWarcinfoRecordBlock(t *testing.T) {
 	if len(refs) != 1 {
 		t.Fatalf("records = %d, want 1", len(refs))
 	}
-	fields, err := ParseWARCFields(readAllFrom(t, refs[0].OpenPayload), WARCFieldsOptions{})
+	fields, err := ParseWARCFields(readAllFrom(t, refs[0].OpenBlock), WARCFieldsOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

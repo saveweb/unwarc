@@ -12,7 +12,7 @@ type Source interface {
 
 // RandomAccessSource opens whole-file and byte-range readers for lazy record
 // access. Implementations must return independent readers from each Open,
-// OpenRange, and OpenAt call; RecordRef.OpenRaw and RecordRef.OpenPayload may
+// OpenRange, and OpenAt call; RecordRef.OpenRaw and RecordRef.OpenBlock may
 // call them concurrently after scanning has finished. The backing bytes must
 // remain stable until every reader opened from the collected RecordRef values
 // has been closed.

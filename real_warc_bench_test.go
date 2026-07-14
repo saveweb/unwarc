@@ -20,27 +20,27 @@ func BenchmarkRealWARC(b *testing.B) {
 		b.Skipf("set %s=/path/to/input.warc[.gz|.zst|.bz2|.xz] to run", realWARCPathEnv)
 	}
 
-	b.Run("stream_payload", func(b *testing.B) {
+	b.Run("stream_block", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			records, bytes := benchmarkStreamPayload(b, path)
+			records, bytes := benchmarkStreamBlock(b, path)
 			reportRealWARCStats(b, records, bytes)
 		}
 	})
-	b.Run("source_stream_payload", func(b *testing.B) {
+	b.Run("source_stream_block", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			records, bytes := benchmarkSourceStreamPayload(b, path)
+			records, bytes := benchmarkSourceStreamBlock(b, path)
 			reportRealWARCStats(b, records, bytes)
 		}
 	})
-	b.Run("source_scan_then_lazy_reopen_payload", func(b *testing.B) {
+	b.Run("source_scan_then_lazy_reopen_block", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			records, bytes := benchmarkSourceScanThenLazyReopenPayload(b, path)
+			records, bytes := benchmarkSourceScanThenLazyReopenBlock(b, path)
 			reportRealWARCStats(b, records, bytes)
 		}
 	})
 }
 
-func benchmarkStreamPayload(tb testing.TB, path string) (int, int64) {
+func benchmarkStreamBlock(tb testing.TB, path string) (int, int64) {
 	tb.Helper()
 	f, err := os.Open(path)
 	if err != nil {
@@ -55,10 +55,10 @@ func benchmarkStreamPayload(tb testing.TB, path string) (int, int64) {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	return drainPayloads(tb, scanner)
+	return drainBlocks(tb, scanner)
 }
 
-func benchmarkSourceStreamPayload(tb testing.TB, path string) (int, int64) {
+func benchmarkSourceStreamBlock(tb testing.TB, path string) (int, int64) {
 	tb.Helper()
 	scanner, err := NewScannerFromSource(NewFileSource(path), ScannerOptions{
 		Compression: CompressionUnknown,
@@ -67,10 +67,10 @@ func benchmarkSourceStreamPayload(tb testing.TB, path string) (int, int64) {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	return drainPayloads(tb, scanner)
+	return drainBlocks(tb, scanner)
 }
 
-func benchmarkSourceScanThenLazyReopenPayload(tb testing.TB, path string) (int, int64) {
+func benchmarkSourceScanThenLazyReopenBlock(tb testing.TB, path string) (int, int64) {
 	tb.Helper()
 	scanner, err := NewScannerFromSource(NewFileSource(path), ScannerOptions{
 		Compression: CompressionUnknown,
@@ -85,12 +85,12 @@ func benchmarkSourceScanThenLazyReopenPayload(tb testing.TB, path string) (int, 
 	var bytes int64
 	for scanner.Next() {
 		ref := scanner.RecordRef()
-		payload, err := ref.OpenPayload()
+		block, err := ref.OpenBlock()
 		if err != nil {
 			tb.Fatal(err)
 		}
-		n, err := io.Copy(io.Discard, payload)
-		closeErr := payload.Close()
+		n, err := io.Copy(io.Discard, block)
+		closeErr := block.Close()
 		if err != nil {
 			tb.Fatal(err)
 		}
@@ -106,22 +106,22 @@ func benchmarkSourceScanThenLazyReopenPayload(tb testing.TB, path string) (int, 
 	return records, bytes
 }
 
-func drainPayloads(tb testing.TB, scanner *Scanner) (int, int64) {
+func drainBlocks(tb testing.TB, scanner *Scanner) (int, int64) {
 	tb.Helper()
 	defer closeTest(tb, scanner)
 
 	var records int
 	var bytes int64
 	for {
-		_, payload, err := scanner.NextPayload()
+		record, err := scanner.NextRecord()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			tb.Fatal(err)
 		}
-		n, err := io.Copy(io.Discard, payload)
-		closeErr := payload.Close()
+		n, err := io.Copy(io.Discard, record.Block())
+		closeErr := record.Close()
 		if err != nil {
 			tb.Fatal(err)
 		}
@@ -142,5 +142,5 @@ func reportRealWARCStats(b *testing.B, records int, bytes int64) {
 	realWARCBenchmarkSink.records = records
 	realWARCBenchmarkSink.bytes = bytes
 	b.ReportMetric(float64(records), "records")
-	b.ReportMetric(float64(bytes), "payload_bytes")
+	b.ReportMetric(float64(bytes), "block_bytes")
 }

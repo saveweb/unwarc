@@ -10,7 +10,7 @@ import (
 
 // WARCZstdSeekIndex is a reverse-built index for the record-local WARC-zstd
 // seek profile. Each indexed record is encoded as a zstd frame for the WARC
-// record header, one or more zstd frames for payload bytes plus the record
+// record header, one or more zstd frames for record-block bytes plus the record
 // trailer, and a zstd seekable-table skippable frame describing those data
 // frames. Empty records may instead use a single zstd frame containing the
 // WARC record header and trailer.
@@ -29,7 +29,7 @@ type WARCZstdSeekIndexOptions struct {
 
 // OpenWARCZstdSeekIndex opens a WARC-zstd input that is fully composed of
 // record-local seekable streams and returns finalized record references without
-// decoding payload frames. If any suffix does not match the profile, it returns
+// decoding block frames. If any suffix does not match the profile, it returns
 // ErrNotSeekIndexed so callers can choose a normal forward scan instead.
 func OpenWARCZstdSeekIndex(source RandomAccessSource) (*WARCZstdSeekIndex, error) {
 	return OpenWARCZstdSeekIndexWithOptions(source, WARCZstdSeekIndexOptions{})
@@ -119,22 +119,22 @@ func readSeekIndexedRecord(indexSource, refSource RandomAccessSource, end int64,
 		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: empty seek table entry", ErrNotSeekIndexed, table.Off)
 	}
 
-	var payloadCompSize int64
-	var payloadUncompSize int64
+	var blockCompSize int64
+	var blockUncompSize int64
 	for _, entry := range entries[1:] {
 		if entry.compSize == 0 {
-			return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: empty payload seek table entry", ErrNotSeekIndexed, table.Off)
+			return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: empty block seek table entry", ErrNotSeekIndexed, table.Off)
 		}
-		payloadCompSize += int64(entry.compSize)
-		payloadUncompSize += int64(entry.uncompSize)
+		blockCompSize += int64(entry.compSize)
+		blockUncompSize += int64(entry.uncompSize)
 	}
 
-	payloadStart := table.Off - payloadCompSize
+	blockStart := table.Off - blockCompSize
 	recordHeaderComp := Range{
-		Off:  payloadStart - int64(recordHeaderEntry.compSize),
+		Off:  blockStart - int64(recordHeaderEntry.compSize),
 		Size: int64(recordHeaderEntry.compSize),
 	}
-	if recordHeaderComp.Off < 0 || payloadStart < 0 {
+	if recordHeaderComp.Off < 0 || blockStart < 0 {
 		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: seek table ranges before file start", ErrNotSeekIndexed, table.Off)
 	}
 
@@ -146,17 +146,17 @@ func readSeekIndexedRecord(indexSource, refSource RandomAccessSource, end int64,
 	if err != nil {
 		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: invalid WARC record header: %w", ErrNotSeekIndexed, recordHeaderComp.Off, err)
 	}
-	payloadRanges, payloadFrames := indexedPayloadRanges(entries[1:], payloadStart, contentLength)
-	trailerLen := payloadUncompSize - contentLength
+	blockDecodeRanges, blockFrameMappings := indexedBlockLayout(entries[1:], blockStart, contentLength)
+	trailerLen := blockUncompSize - contentLength
 	if trailerLen < 0 {
-		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: payload frames are shorter than Content-Length", ErrNotSeekIndexed, payloadStart)
+		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: block frames are shorter than Content-Length", ErrNotSeekIndexed, blockStart)
 	}
 
 	recordComp := Range{Off: recordHeaderComp.Off, Size: table.End() - recordHeaderComp.Off}
-	recordUncompSize := int64(recordHeaderEntry.uncompSize) + payloadUncompSize
-	compRanges := make([]Range, 0, len(payloadRanges)+1)
+	recordUncompSize := int64(recordHeaderEntry.uncompSize) + blockUncompSize
+	compRanges := make([]Range, 0, len(blockDecodeRanges)+1)
 	compRanges = append(compRanges, recordHeaderComp)
-	compRanges = append(compRanges, payloadRanges...)
+	compRanges = append(compRanges, blockDecodeRanges...)
 	ref := &RecordRef{
 		Header:        header,
 		RawHeader:     rawRecordHeader,
@@ -164,12 +164,12 @@ func readSeekIndexedRecord(indexSource, refSource RandomAccessSource, end int64,
 		HeaderLen:     int64(len(rawRecordHeader)),
 		TrailerLen:    trailerLen,
 		Location: RecordLocation{
-			Uncomp:            Range{Off: 0, Size: recordUncompSize},
-			CompRanges:        compRanges,
-			PayloadCompRanges: payloadRanges,
-			PayloadFrames:     payloadFrames,
-			Access:            AccessExact,
-			Final:             true,
+			Uncomp:             Range{Off: 0, Size: recordUncompSize},
+			CompRanges:         compRanges,
+			BlockDecodeRanges:  blockDecodeRanges,
+			BlockFrameMappings: blockFrameMappings,
+			Access:             AccessExact,
+			Final:              true,
 		},
 		source:      refSource,
 		compression: CompressionZstd,
@@ -298,30 +298,30 @@ func decodeSeekIndexedEmptyRecord(source RandomAccessSource, rr Range, wantSize 
 	return rawHeader, int64(len(trailer)), nil
 }
 
-func indexedPayloadRanges(entries []zstdSeekEntry, compStart, contentLength int64) ([]Range, []RecordPayloadFrame) {
+func indexedBlockLayout(entries []zstdSeekEntry, compStart, contentLength int64) ([]Range, []BlockFrameMapping) {
 	ranges := make([]Range, 0, len(entries))
-	frames := make([]RecordPayloadFrame, 0, len(entries))
+	mappings := make([]BlockFrameMapping, 0, len(entries))
 	compOff := compStart
-	var payloadOff int64
+	var blockOff int64
 	for _, entry := range entries {
 		comp := Range{Off: compOff, Size: int64(entry.compSize)}
 		ranges = append(ranges, comp)
-		if payloadOff < contentLength {
-			payloadSize := int64(entry.uncompSize)
-			if payloadOff+payloadSize > contentLength {
-				payloadSize = contentLength - payloadOff
+		if blockOff < contentLength {
+			blockSize := int64(entry.uncompSize)
+			if blockOff+blockSize > contentLength {
+				blockSize = contentLength - blockOff
 			}
-			if payloadSize > 0 {
-				frames = append(frames, RecordPayloadFrame{
-					Comp:    comp,
-					Payload: Range{Off: payloadOff, Size: payloadSize},
+			if blockSize > 0 {
+				mappings = append(mappings, BlockFrameMapping{
+					Comp:  comp,
+					Block: Range{Off: blockOff, Size: blockSize},
 				})
 			}
 		}
 		compOff += int64(entry.compSize)
-		payloadOff += int64(entry.uncompSize)
+		blockOff += int64(entry.uncompSize)
 	}
-	return ranges, frames
+	return ranges, mappings
 }
 
 func readRecordLocalSeekTable(source RandomAccessSource, end int64) ([]zstdSeekEntry, Range, error) {

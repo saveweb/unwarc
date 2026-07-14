@@ -37,15 +37,15 @@ func TestScannerXZWholeStreamAccessModes(t *testing.T) {
 		if got := readAllFrom(t, refs[0].OpenRaw); !bytes.Equal(got, rec1) {
 			t.Fatalf("first raw record = %q, want %q", got, rec1)
 		}
-		if got := readAllFrom(t, refs[1].OpenPayload); string(got) != "DEFG" {
-			t.Fatalf("second payload = %q, want DEFG", got)
+		if got := readAllFrom(t, refs[1].OpenBlock); string(got) != "DEFG" {
+			t.Fatalf("second block = %q, want DEFG", got)
 		}
 	})
 }
 
 func TestScannerXZCompressionUnknownDetection(t *testing.T) {
-	payload := []byte("ABC")
-	record := makeRecord("warcinfo", "<urn:uuid:xz-detect>", payload)
+	block := []byte("ABC")
+	record := makeRecord("warcinfo", "<urn:uuid:xz-detect>", block)
 	stream := xzStream(t, record)
 
 	for _, tc := range []struct {
@@ -74,9 +74,9 @@ func TestScannerXZCompressionUnknownDetection(t *testing.T) {
 				t.Fatalf("compression = %s, want %s", refs[0].compression, CompressionXZ)
 			}
 
-			got := readAllFrom(t, refs[0].OpenPayload)
-			if !bytes.Equal(got, payload) {
-				t.Fatalf("unexpected payload %q", got)
+			got := readAllFrom(t, refs[0].OpenBlock)
+			if !bytes.Equal(got, block) {
+				t.Fatalf("unexpected block %q", got)
 			}
 		})
 	}
@@ -97,12 +97,12 @@ func TestScannerXZConcatenatedStreamsNotImplemented(t *testing.T) {
 	if scanner.Next() {
 		t.Fatal("unexpected record from second XZ stream")
 	}
-	if !errors.Is(scanner.Err(), ErrSegmentedCompressionNotImplemented) {
-		t.Fatalf("Err() = %v, want %v", scanner.Err(), ErrSegmentedCompressionNotImplemented)
+	if !errors.Is(scanner.Err(), ErrCompressionUnitAccessNotImplemented) {
+		t.Fatalf("Err() = %v, want %v", scanner.Err(), ErrCompressionUnitAccessNotImplemented)
 	}
 }
 
-func TestScannerXZExactCompressedSegmentLazyNotImplemented(t *testing.T) {
+func TestScannerXZExactCompressionUnitLazyNotImplemented(t *testing.T) {
 	stream := xzStream(t, makeRecord("warcinfo", "<urn:uuid:xz-exact>", []byte("ABC")))
 	ref := &RecordRef{
 		Location: RecordLocation{
@@ -114,8 +114,8 @@ func TestScannerXZExactCompressedSegmentLazyNotImplemented(t *testing.T) {
 		compression: CompressionXZ,
 	}
 
-	if _, err := ref.OpenRaw(); !errors.Is(err, ErrSegmentedCompressionNotImplemented) {
-		t.Fatalf("OpenRaw() error = %v, want %v", err, ErrSegmentedCompressionNotImplemented)
+	if _, err := ref.OpenRaw(); !errors.Is(err, ErrCompressionUnitAccessNotImplemented) {
+		t.Fatalf("OpenRaw() error = %v, want %v", err, ErrCompressionUnitAccessNotImplemented)
 	}
 }
 

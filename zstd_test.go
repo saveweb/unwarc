@@ -11,8 +11,8 @@ import (
 )
 
 func TestZstdSingleRecordOneFrameExactLazySource(t *testing.T) {
-	payload := []byte("single-frame-payload")
-	record := makeRecord("response", "<urn:uuid:zstd-single>", payload)
+	block := []byte("single-frame-block")
+	record := makeRecord("response", "<urn:uuid:zstd-single>", block)
 	frame := zstdFrame(t, record)
 
 	refs := scanZstdSource(t, frame)
@@ -22,13 +22,13 @@ func TestZstdSingleRecordOneFrameExactLazySource(t *testing.T) {
 	ref := refs[0]
 	assertExactRanges(t, ref, Range{Off: 0, Size: int64(len(frame))})
 	assertZstdOpenRaw(t, ref, record)
-	assertZstdOpenPayload(t, ref, payload)
+	assertZstdOpenBlock(t, ref, block)
 }
 
 func TestZstdRecordSpansMultipleFramesExactLazySource(t *testing.T) {
-	payload := []byte("record-spans-zstd-frames")
-	record := makeRecord("response", "<urn:uuid:zstd-spanning>", payload)
-	cut := bytes.Index(record, payload) + 7
+	block := []byte("record-spans-zstd-frames")
+	record := makeRecord("response", "<urn:uuid:zstd-spanning>", block)
+	cut := bytes.Index(record, block) + 7
 	if cut <= 0 {
 		t.Fatal("bad test fixture")
 	}
@@ -47,14 +47,14 @@ func TestZstdRecordSpansMultipleFramesExactLazySource(t *testing.T) {
 		Range{Off: int64(len(frame1)), Size: int64(len(frame2))},
 	)
 	assertZstdOpenRaw(t, ref, record)
-	assertZstdOpenPayload(t, ref, payload)
+	assertZstdOpenBlock(t, ref, block)
 }
 
-func TestZstdSingleFrameMultipleRecordsLazyFromSegmentStart(t *testing.T) {
-	payload1 := []byte("ABC")
-	payload2 := []byte("DEFG")
-	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-solid-1>", payload1)
-	record2 := makeRecord("response", "<urn:uuid:zstd-solid-2>", payload2)
+func TestZstdSingleFrameMultipleRecordsLazyFromCompressionUnitStart(t *testing.T) {
+	block1 := []byte("ABC")
+	block2 := []byte("DEFG")
+	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-solid-1>", block1)
+	record2 := makeRecord("response", "<urn:uuid:zstd-solid-2>", block2)
 	frame := zstdFrame(t, append(append([]byte{}, record1...), record2...))
 
 	refs := scanZstdSource(t, frame)
@@ -62,8 +62,8 @@ func TestZstdSingleFrameMultipleRecordsLazyFromSegmentStart(t *testing.T) {
 		t.Fatalf("expected 2 records, got %d", len(refs))
 	}
 	for i, ref := range refs {
-		if ref.Location.Access != AccessFromSegmentStart {
-			t.Fatalf("record %d access = %s, want %s: %+v", i, ref.Location.Access, AccessFromSegmentStart, ref.Location)
+		if ref.Location.Access != AccessFromCompressionUnitStart {
+			t.Fatalf("record %d access = %s, want %s: %+v", i, ref.Location.Access, AccessFromCompressionUnitStart, ref.Location)
 		}
 		if ref.Location.RestartRange == nil || ref.Location.RestartRange.Off != 0 {
 			t.Fatalf("record %d restart range = %+v, want frame start", i, ref.Location.RestartRange)
@@ -71,9 +71,9 @@ func TestZstdSingleFrameMultipleRecordsLazyFromSegmentStart(t *testing.T) {
 		assertIssue(t, ref, IssueFrameContainsMultipleRecords)
 	}
 	assertZstdOpenRaw(t, refs[0], record1)
-	assertZstdOpenPayload(t, refs[0], payload1)
+	assertZstdOpenBlock(t, refs[0], block1)
 	assertZstdOpenRaw(t, refs[1], record2)
-	assertZstdOpenPayload(t, refs[1], payload2)
+	assertZstdOpenBlock(t, refs[1], block2)
 }
 
 func TestZstdStrictRejectsSingleFrameMultipleRecords(t *testing.T) {
@@ -98,8 +98,8 @@ func TestZstdStrictRejectsSingleFrameMultipleRecords(t *testing.T) {
 
 func TestZstdDictionaryFrameAllowedOnlyAtBeginning(t *testing.T) {
 	dict := zstdDictionary(t)
-	payload := []byte("dictionary-backed payload dictionary-backed payload")
-	record := makeRecord("response", "<urn:uuid:zstd-dict>", payload)
+	block := []byte("dictionary-backed block dictionary-backed block")
+	record := makeRecord("response", "<urn:uuid:zstd-dict>", block)
 	dictFrame := zstdSkippableFrame(zstdDictFrameMagic, dict)
 	dataFrame := zstdFrameWithDict(t, record, dict)
 	stream := append(append([]byte{}, dictFrame...), dataFrame...)
@@ -111,7 +111,7 @@ func TestZstdDictionaryFrameAllowedOnlyAtBeginning(t *testing.T) {
 	ref := refs[0]
 	assertExactRanges(t, ref, Range{Off: int64(len(dictFrame)), Size: int64(len(dataFrame))})
 	assertZstdOpenRaw(t, ref, record)
-	assertZstdOpenPayload(t, ref, payload)
+	assertZstdOpenBlock(t, ref, block)
 
 	lateDict := append(append([]byte{}, zstdFrame(t, record)...), dictFrame...)
 	lateDict = append(lateDict, zstdFrame(t, record)...)
@@ -130,12 +130,12 @@ func TestZstdDictionaryFrameAllowedOnlyAtBeginning(t *testing.T) {
 	}
 }
 
-func TestZstdDictionaryBackedSolidFrameLazyFromSegmentStart(t *testing.T) {
+func TestZstdDictionaryBackedSolidFrameLazyFromCompressionUnitStart(t *testing.T) {
 	dict := zstdDictionary(t)
-	payload1 := []byte("dictionary-backed payload one dictionary-backed payload one")
-	payload2 := []byte("dictionary-backed payload two dictionary-backed payload two")
-	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-dict-solid-1>", payload1)
-	record2 := makeRecord("response", "<urn:uuid:zstd-dict-solid-2>", payload2)
+	block1 := []byte("dictionary-backed block one dictionary-backed block one")
+	block2 := []byte("dictionary-backed block two dictionary-backed block two")
+	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-dict-solid-1>", block1)
+	record2 := makeRecord("response", "<urn:uuid:zstd-dict-solid-2>", block2)
 	dictFrame := zstdSkippableFrame(zstdDictFrameMagic, dict)
 	dataFrame := zstdFrameWithDict(t, append(append([]byte{}, record1...), record2...), dict)
 	stream := append(append([]byte{}, dictFrame...), dataFrame...)
@@ -145,8 +145,8 @@ func TestZstdDictionaryBackedSolidFrameLazyFromSegmentStart(t *testing.T) {
 		t.Fatalf("expected 2 dictionary-backed solid-frame records, got %d", len(refs))
 	}
 	for i, ref := range refs {
-		if ref.Location.Access != AccessFromSegmentStart {
-			t.Fatalf("record %d access = %s, want %s: %+v", i, ref.Location.Access, AccessFromSegmentStart, ref.Location)
+		if ref.Location.Access != AccessFromCompressionUnitStart {
+			t.Fatalf("record %d access = %s, want %s: %+v", i, ref.Location.Access, AccessFromCompressionUnitStart, ref.Location)
 		}
 		if ref.Location.RestartRange == nil || ref.Location.RestartRange.Off != int64(len(dictFrame)) {
 			t.Fatalf("record %d restart range = %+v, want data frame start", i, ref.Location.RestartRange)
@@ -154,16 +154,16 @@ func TestZstdDictionaryBackedSolidFrameLazyFromSegmentStart(t *testing.T) {
 		assertIssue(t, ref, IssueFrameContainsMultipleRecords)
 	}
 	assertZstdOpenRaw(t, refs[0], record1)
-	assertZstdOpenPayload(t, refs[0], payload1)
+	assertZstdOpenBlock(t, refs[0], block1)
 	assertZstdOpenRaw(t, refs[1], record2)
-	assertZstdOpenPayload(t, refs[1], payload2)
+	assertZstdOpenBlock(t, refs[1], block2)
 }
 
 func TestZstdDictionaryBackedRecordSpansFramesExactLazySource(t *testing.T) {
 	dict := zstdDictionary(t)
-	payload := []byte("dictionary-backed payload spanning dictionary-backed payload spanning")
-	record := makeRecord("response", "<urn:uuid:zstd-dict-spanning>", payload)
-	cut := bytes.Index(record, payload) + 9
+	block := []byte("dictionary-backed block spanning dictionary-backed block spanning")
+	record := makeRecord("response", "<urn:uuid:zstd-dict-spanning>", block)
+	cut := bytes.Index(record, block) + 9
 	if cut <= 0 {
 		t.Fatal("bad test fixture")
 	}
@@ -183,13 +183,13 @@ func TestZstdDictionaryBackedRecordSpansFramesExactLazySource(t *testing.T) {
 		Range{Off: int64(len(dictFrame) + len(frame1)), Size: int64(len(frame2))},
 	)
 	assertZstdOpenRaw(t, ref, record)
-	assertZstdOpenPayload(t, ref, payload)
+	assertZstdOpenBlock(t, ref, block)
 }
 
 func TestZstdDictionaryBackedFrameWithoutFCS(t *testing.T) {
 	dict := zstdDictionary(t)
-	payload := bytes.Repeat([]byte("dictionary-backed no-fcs payload "), 512)
-	record := makeRecord("response", "<urn:uuid:zstd-dict-no-fcs>", payload)
+	block := bytes.Repeat([]byte("dictionary-backed no-fcs block "), 512)
+	record := makeRecord("response", "<urn:uuid:zstd-dict-no-fcs>", block)
 	dictFrame := zstdSkippableFrame(zstdDictFrameMagic, dict)
 	dataFrame := zstdFrameWithDictWithoutFCS(t, record, dict)
 	stream := append(append([]byte{}, dictFrame...), dataFrame...)
@@ -208,7 +208,7 @@ func TestZstdDictionaryBackedFrameWithoutFCS(t *testing.T) {
 	ref := scanner.RecordRef()
 	assertExactRanges(t, ref, Range{Off: int64(len(dictFrame)), Size: int64(len(dataFrame))})
 	assertIssue(t, ref, IssueZstdFrameMissingContentSize)
-	assertZstdOpenPayload(t, ref, payload)
+	assertZstdOpenBlock(t, ref, block)
 
 	strictScanner, err := NewScanner(bytes.NewReader(stream), ScannerOptions{
 		Compression: CompressionZstd,
@@ -226,10 +226,10 @@ func TestZstdDictionaryBackedFrameWithoutFCS(t *testing.T) {
 }
 
 func TestZstdSkippableExtensionBetweenFrames(t *testing.T) {
-	payload1 := []byte("before-extension")
-	payload2 := []byte("after-extension")
-	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-ext-1>", payload1)
-	record2 := makeRecord("response", "<urn:uuid:zstd-ext-2>", payload2)
+	block1 := []byte("before-extension")
+	block2 := []byte("after-extension")
+	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-ext-1>", block1)
+	record2 := makeRecord("response", "<urn:uuid:zstd-ext-2>", block2)
 	frame1 := zstdFrame(t, record1)
 	extension := zstdSkippableFrame(0x184D2A50, []byte("extension payload"))
 	frame2 := zstdFrame(t, record2)
@@ -241,8 +241,8 @@ func TestZstdSkippableExtensionBetweenFrames(t *testing.T) {
 	}
 	assertExactRanges(t, refs[0], Range{Off: 0, Size: int64(len(frame1))})
 	assertExactRanges(t, refs[1], Range{Off: int64(len(frame1) + len(extension)), Size: int64(len(frame2))})
-	assertZstdOpenPayload(t, refs[0], payload1)
-	assertZstdOpenPayload(t, refs[1], payload2)
+	assertZstdOpenBlock(t, refs[0], block1)
+	assertZstdOpenBlock(t, refs[1], block2)
 }
 
 func TestZstdOversizedSkippableFramesDoNotAllocatePayloads(t *testing.T) {
@@ -292,8 +292,8 @@ func TestZstdOversizedSkippableFramesDoNotAllocatePayloads(t *testing.T) {
 }
 
 func TestZstdFrameWithoutFCSEndsAtExactRange(t *testing.T) {
-	payload := []byte("no-frame-content-size")
-	record := makeRecord("response", "<urn:uuid:zstd-no-fcs>", payload)
+	block := []byte("no-frame-content-size")
+	record := makeRecord("response", "<urn:uuid:zstd-no-fcs>", block)
 	frame := zstdFrameWithoutFCS(t, record)
 
 	refs := scanZstdSource(t, frame)
@@ -303,12 +303,12 @@ func TestZstdFrameWithoutFCSEndsAtExactRange(t *testing.T) {
 	ref := refs[0]
 	assertExactRanges(t, ref, Range{Off: 0, Size: int64(len(frame))})
 	assertZstdOpenRaw(t, ref, record)
-	assertZstdOpenPayload(t, ref, payload)
+	assertZstdOpenBlock(t, ref, block)
 }
 
 func TestZstdFrameWithoutFCSStreamsWhenBufferDisabled(t *testing.T) {
-	payload := bytes.Repeat([]byte("no-fcs-streaming-"), 2048)
-	record := makeRecord("response", "<urn:uuid:zstd-no-fcs-streaming>", payload)
+	block := bytes.Repeat([]byte("no-fcs-streaming-"), 2048)
+	record := makeRecord("response", "<urn:uuid:zstd-no-fcs-streaming>", block)
 	frame := zstdFrameWithoutFCS(t, record)
 
 	scanner, err := NewScannerFromSource(newBytesSource(frame), ScannerOptions{
@@ -325,7 +325,7 @@ func TestZstdFrameWithoutFCSStreamsWhenBufferDisabled(t *testing.T) {
 	ref := scanner.RecordRef()
 	assertExactRanges(t, ref, Range{Off: 0, Size: int64(len(frame))})
 	assertIssue(t, ref, IssueZstdFrameMissingContentSize)
-	assertZstdOpenPayload(t, ref, payload)
+	assertZstdOpenBlock(t, ref, block)
 	if scanner.Next() {
 		t.Fatal("unexpected extra record")
 	}
@@ -334,8 +334,8 @@ func TestZstdFrameWithoutFCSStreamsWhenBufferDisabled(t *testing.T) {
 	}
 }
 
-func TestZstdStrictNextPayloadRejectsMissingFCS(t *testing.T) {
-	record := makeRecord("response", "<urn:uuid:zstd-strict-next-payload-no-fcs>", []byte("payload"))
+func TestZstdStrictNextRecordRejectsMissingFCS(t *testing.T) {
+	record := makeRecord("response", "<urn:uuid:zstd-strict-next-block-no-fcs>", []byte("block"))
 	frame := zstdFrameWithoutFCS(t, record)
 
 	scanner, err := NewScanner(bytes.NewReader(frame), ScannerOptions{
@@ -345,15 +345,15 @@ func TestZstdStrictNextPayloadRejectsMissingFCS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, err = scanner.NextPayload()
+	_, err = scanner.NextRecord()
 	if !errors.Is(err, ErrInvalidWARCZstd) {
-		t.Fatalf("NextPayload() error = %v, want %v", err, ErrInvalidWARCZstd)
+		t.Fatalf("NextRecord() error = %v, want %v", err, ErrInvalidWARCZstd)
 	}
 }
 
 func TestZstdStrictRequiresFrameContentSizeAndChecksum(t *testing.T) {
-	payload := []byte("strict-zstd-frame-fields")
-	record := makeRecord("response", "<urn:uuid:zstd-strict-frame-fields>", payload)
+	block := []byte("strict-zstd-frame-fields")
+	record := makeRecord("response", "<urn:uuid:zstd-strict-frame-fields>", block)
 
 	tests := []struct {
 		name      string
@@ -381,7 +381,7 @@ func TestZstdStrictRequiresFrameContentSizeAndChecksum(t *testing.T) {
 			if !hasIssue(refs[0], tt.wantIssue) {
 				t.Fatalf("missing issue %v in %+v", tt.wantIssue, refs[0].Location.Issues)
 			}
-			assertZstdOpenPayload(t, refs[0], payload)
+			assertZstdOpenBlock(t, refs[0], block)
 		})
 
 		t.Run(tt.name+"/strict", func(t *testing.T) {
@@ -403,8 +403,8 @@ func TestZstdStrictRequiresFrameContentSizeAndChecksum(t *testing.T) {
 }
 
 func TestZstdFrameCompressedReaderStreamsSmallReads(t *testing.T) {
-	payload := bytes.Repeat([]byte("streaming-zstd-frame-reader-"), 4096)
-	frame := zstdFrame(t, payload)
+	frameData := bytes.Repeat([]byte("streaming-zstd-frame-reader-"), 4096)
+	frame := zstdFrame(t, frameData)
 	if frame[4]&0x04 == 0 {
 		t.Fatal("test fixture must include a zstd content checksum")
 	}
@@ -439,9 +439,9 @@ func assertZstdOpenRaw(t *testing.T, ref *RecordRef, want []byte) {
 	assertZstdRead(t, readAllFrom(t, ref.OpenRaw), want)
 }
 
-func assertZstdOpenPayload(t *testing.T, ref *RecordRef, want []byte) {
+func assertZstdOpenBlock(t *testing.T, ref *RecordRef, want []byte) {
 	t.Helper()
-	assertZstdRead(t, readAllFrom(t, ref.OpenPayload), want)
+	assertZstdRead(t, readAllFrom(t, ref.OpenBlock), want)
 }
 
 func assertZstdRead(t *testing.T, got, want []byte) {
@@ -516,10 +516,10 @@ func zstdFrameWithoutChecksum(t *testing.T, data []byte) []byte {
 
 func zstdDictionary(t *testing.T) []byte {
 	t.Helper()
-	history := bytes.Repeat([]byte("dictionary-backed payload WARC/1.1 response "), 64)
+	history := bytes.Repeat([]byte("dictionary-backed block WARC/1.1 response "), 64)
 	contents := [][]byte{
-		bytes.Repeat([]byte("dictionary-backed payload WARC/1.1 response "), 32),
-		bytes.Repeat([]byte("response dictionary-backed payload Content-Length "), 32),
+		bytes.Repeat([]byte("dictionary-backed block WARC/1.1 response "), 32),
+		bytes.Repeat([]byte("response dictionary-backed block Content-Length "), 32),
 	}
 	dict, err := zstd.BuildDict(zstd.BuildDictOptions{
 		ID:       17,

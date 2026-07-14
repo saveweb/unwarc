@@ -14,7 +14,7 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
-func TestScannerPlainOffsetsAndLazyPayload(t *testing.T) {
+func TestScannerPlainOffsetsAndLazyBlock(t *testing.T) {
 	records := [][]byte{
 		makeRecord("warcinfo", "<urn:uuid:plain-1>", []byte("ABC")),
 		makeRecord("response", "<urn:uuid:plain-2>", []byte("DEFG")),
@@ -48,17 +48,17 @@ func TestScannerPlainOffsetsAndLazyPayload(t *testing.T) {
 		t.Fatalf("unexpected second location: %+v", refs[1].Location)
 	}
 
-	payload, err := refs[1].OpenPayload()
+	block, err := refs[1].OpenBlock()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer closeTest(t, payload)
-	got, err := io.ReadAll(payload)
+	defer closeTest(t, block)
+	got, err := io.ReadAll(block)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != "DEFG" {
-		t.Fatalf("unexpected payload %q", got)
+		t.Fatalf("unexpected block %q", got)
 	}
 }
 
@@ -172,68 +172,71 @@ func TestScannerResynchronizationDoesNotSkipArbitraryBytes(t *testing.T) {
 	}
 }
 
-func TestScannerNextPayloadStreamsContent(t *testing.T) {
+func TestScannerNextRecordStreamsBlock(t *testing.T) {
 	records := [][]byte{
-		makeRecord("warcinfo", "<urn:uuid:stream-payload-1>", []byte("ABC")),
-		makeRecord("response", "<urn:uuid:stream-payload-2>", []byte("DEFG")),
+		makeRecord("warcinfo", "<urn:uuid:stream-block-1>", []byte("ABC")),
+		makeRecord("response", "<urn:uuid:stream-block-2>", []byte("DEFG")),
 	}
 	scanner, err := NewScanner(bytes.NewReader(bytes.Join(records, nil)), ScannerOptions{Compression: CompressionPlain})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ref, payload, err := scanner.NextPayload()
+	record, err := scanner.NextRecord()
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := io.ReadAll(payload)
+	ref := record.Ref()
+	got, err := io.ReadAll(record.Block())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != "ABC" {
-		t.Fatalf("first payload = %q", got)
+		t.Fatalf("first block = %q", got)
 	}
 	if ref.TrailerLen != 4 || ref.Location.Uncomp.Size != int64(len(records[0])) {
-		t.Fatalf("first ref was not finalized after payload read: %+v trailer=%d", ref.Location, ref.TrailerLen)
+		t.Fatalf("first ref was not finalized after block read: %+v trailer=%d", ref.Location, ref.TrailerLen)
 	}
 
-	ref, payload, err = scanner.NextPayload()
+	record, err = scanner.NextRecord()
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err = io.ReadAll(payload)
+	ref = record.Ref()
+	got, err = io.ReadAll(record.Block())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != "DEFG" {
-		t.Fatalf("second payload = %q", got)
+		t.Fatalf("second block = %q", got)
 	}
 	if ref.TrailerLen != 4 || ref.Location.Uncomp.Size != int64(len(records[1])) {
-		t.Fatalf("second ref was not finalized after payload read: %+v trailer=%d", ref.Location, ref.TrailerLen)
+		t.Fatalf("second ref was not finalized after block read: %+v trailer=%d", ref.Location, ref.TrailerLen)
 	}
 
-	_, _, err = scanner.NextPayload()
+	_, err = scanner.NextRecord()
 	if !errors.Is(err, io.EOF) {
-		t.Fatalf("NextPayload() err = %v, want EOF", err)
+		t.Fatalf("NextRecord() err = %v, want EOF", err)
 	}
 	if err := scanner.Err(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestScannerNextPayloadPendingLocationRejectsLazyOpen(t *testing.T) {
+func TestScannerNextRecordPendingLocationRejectsLazyOpen(t *testing.T) {
 	record := makeRecord("warcinfo", "<urn:uuid:stream-pending>", []byte("ABC"))
 	scanner, err := NewScanner(bytes.NewReader(record), ScannerOptions{Compression: CompressionPlain})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ref, payload, err := scanner.NextPayload()
+	recordReader, err := scanner.NextRecord()
 	if err != nil {
 		t.Fatal(err)
 	}
+	ref := recordReader.Ref()
 	if ref.Finalized() {
-		t.Fatalf("ref was finalized before payload was consumed: %+v", ref.Location)
+		t.Fatalf("ref was finalized before block was consumed: %+v", ref.Location)
 	}
 	if got := scanner.RecordRef(); got != nil {
 		t.Fatalf("scanner.RecordRef before finalization = %+v, want nil", got)
@@ -241,68 +244,96 @@ func TestScannerNextPayloadPendingLocationRejectsLazyOpen(t *testing.T) {
 	if _, err := ref.OpenRaw(); !errors.Is(err, ErrRecordLocationPending) {
 		t.Fatalf("OpenRaw before finalization error = %v, want %v", err, ErrRecordLocationPending)
 	}
-	if _, err := ref.OpenPayload(); !errors.Is(err, ErrRecordLocationPending) {
-		t.Fatalf("OpenPayload before finalization error = %v, want %v", err, ErrRecordLocationPending)
+	if _, err := ref.OpenBlock(); !errors.Is(err, ErrRecordLocationPending) {
+		t.Fatalf("OpenBlock before finalization error = %v, want %v", err, ErrRecordLocationPending)
 	}
 
-	if _, err := io.ReadAll(payload); err != nil {
+	if _, err := io.ReadAll(recordReader.Block()); err != nil {
 		t.Fatal(err)
 	}
-	if err := payload.Close(); err != nil {
+	if err := recordReader.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if !ref.Finalized() {
-		t.Fatalf("ref was not finalized after payload read: %+v", ref.Location)
+		t.Fatalf("ref was not finalized after block read: %+v", ref.Location)
 	}
 	if got := scanner.RecordRef(); got != ref {
 		t.Fatalf("scanner.RecordRef after finalization = %+v, want returned ref", got)
 	}
-	if _, err := ref.OpenPayload(); err == nil || errors.Is(err, ErrRecordLocationPending) {
-		t.Fatalf("OpenPayload after finalization error = %v, want non-pending no-source/lazy-open error", err)
+	if _, err := ref.OpenBlock(); err == nil || errors.Is(err, ErrRecordLocationPending) {
+		t.Fatalf("OpenBlock after finalization error = %v, want non-pending no-source/lazy-open error", err)
 	}
 }
 
-func TestScannerNextPayloadClosesPreviousPayload(t *testing.T) {
+func TestScannerCloseFinalizesActiveRecord(t *testing.T) {
+	recordBytes := makeRecord("warcinfo", "<urn:uuid:stream-close>", []byte("ABC"))
+	scanner, err := NewScanner(bytes.NewReader(recordBytes), ScannerOptions{Compression: CompressionPlain})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	record, err := scanner.NextRecord()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := record.Ref()
+	if _, err := record.Block().Read(make([]byte, 1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := scanner.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !ref.Finalized() {
+		t.Fatalf("ref was not finalized by Scanner.Close: %+v", ref.Location)
+	}
+	if ref.Location.Uncomp.Size != int64(len(recordBytes)) {
+		t.Fatalf("record size = %d, want %d", ref.Location.Uncomp.Size, len(recordBytes))
+	}
+}
+
+func TestScannerNextRecordClosesPreviousRecord(t *testing.T) {
 	records := [][]byte{
-		makeRecord("warcinfo", "<urn:uuid:stream-payload-close-1>", []byte("ABC")),
-		makeRecord("response", "<urn:uuid:stream-payload-close-2>", []byte("DEFG")),
+		makeRecord("warcinfo", "<urn:uuid:stream-block-close-1>", []byte("ABC")),
+		makeRecord("response", "<urn:uuid:stream-block-close-2>", []byte("DEFG")),
 	}
 	scanner, err := NewScanner(bytes.NewReader(bytes.Join(records, nil)), ScannerOptions{Compression: CompressionPlain})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ref1, _, err := scanner.NextPayload()
+	record1, err := scanner.NextRecord()
 	if err != nil {
 		t.Fatal(err)
 	}
-	ref2, payload, err := scanner.NextPayload()
+	ref1 := record1.Ref()
+	record2, err := scanner.NextRecord()
 	if err != nil {
 		t.Fatal(err)
 	}
+	ref2 := record2.Ref()
 	if ref1.TrailerLen != 4 || ref1.Location.Uncomp.Size != int64(len(records[0])) {
 		t.Fatalf("first ref was not finalized when advancing: %+v trailer=%d", ref1.Location, ref1.TrailerLen)
 	}
-	got, err := io.ReadAll(payload)
+	got, err := io.ReadAll(record2.Block())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != "DEFG" {
-		t.Fatalf("second payload = %q", got)
+		t.Fatalf("second block = %q", got)
 	}
 	if ref2.TrailerLen != 4 {
-		t.Fatalf("second ref was not finalized after payload read: %+v trailer=%d", ref2.Location, ref2.TrailerLen)
+		t.Fatalf("second ref was not finalized after block read: %+v trailer=%d", ref2.Location, ref2.TrailerLen)
 	}
 	if err := scanner.Err(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestScannerNextPayloadReportsStrictTrailerErrors(t *testing.T) {
+func TestScannerNextRecordReportsStrictTrailerErrors(t *testing.T) {
 	data := []byte(
 		"WARC/1.1\r\n" +
 			"WARC-Type: resource\r\n" +
-			"WARC-Record-ID: <urn:uuid:stream-payload-trailer>\r\n" +
+			"WARC-Record-ID: <urn:uuid:stream-block-trailer>\r\n" +
 			"Content-Length: 3\r\n" +
 			"\r\n" +
 			"ABC",
@@ -314,16 +345,16 @@ func TestScannerNextPayloadReportsStrictTrailerErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, payload, err := scanner.NextPayload()
+	record, err := scanner.NextRecord()
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := io.ReadAll(payload)
+	got, err := io.ReadAll(record.Block())
 	if string(got) != "ABC" {
-		t.Fatalf("payload = %q", got)
+		t.Fatalf("block = %q", got)
 	}
 	if !errors.Is(err, ErrMissingRecordTrailer) {
-		t.Fatalf("payload read err = %v, want %v", err, ErrMissingRecordTrailer)
+		t.Fatalf("block read err = %v, want %v", err, ErrMissingRecordTrailer)
 	}
 	if !errors.Is(scanner.Err(), ErrMissingRecordTrailer) {
 		t.Fatalf("scanner err = %v, want %v", scanner.Err(), ErrMissingRecordTrailer)
@@ -546,7 +577,7 @@ func TestScannerRejectsLateZstdDictionaryFrame(t *testing.T) {
 	}
 }
 
-func makeRecord(recordType, id string, payload []byte) []byte {
+func makeRecord(recordType, id string, block []byte) []byte {
 	return []byte(fmt.Sprintf(
 		"WARC/1.1\r\n"+
 			"WARC-Type: %s\r\n"+
@@ -556,8 +587,8 @@ func makeRecord(recordType, id string, payload []byte) []byte {
 			"%s\r\n\r\n",
 		recordType,
 		id,
-		len(payload),
-		payload,
+		len(block),
+		block,
 	))
 }
 

@@ -222,8 +222,8 @@ func TestScannerBzip2WholeStreamAccessModes(t *testing.T) {
 		if got := readAllFrom(t, refs[0].OpenRaw); !bytes.Equal(got, rec1) {
 			t.Fatalf("first raw record = %q, want %q", got, rec1)
 		}
-		if got := readAllFrom(t, refs[1].OpenPayload); string(got) != "DEFG" {
-			t.Fatalf("second payload = %q, want DEFG", got)
+		if got := readAllFrom(t, refs[1].OpenBlock); string(got) != "DEFG" {
+			t.Fatalf("second block = %q, want DEFG", got)
 		}
 	})
 }
@@ -257,7 +257,7 @@ func TestScannerBzip2CompressionUnknownDetection(t *testing.T) {
 	}
 }
 
-func TestScannerBzip2ExactCompressedSegmentLazyNotImplemented(t *testing.T) {
+func TestScannerBzip2ExactCompressionUnitLazyNotImplemented(t *testing.T) {
 	stream := bzip2TwoRecordFixture(t)
 	ref := &RecordRef{
 		Location: RecordLocation{
@@ -269,8 +269,8 @@ func TestScannerBzip2ExactCompressedSegmentLazyNotImplemented(t *testing.T) {
 		compression: CompressionBzip2,
 	}
 
-	if _, err := ref.OpenRaw(); !errors.Is(err, ErrSegmentedCompressionNotImplemented) {
-		t.Fatalf("OpenRaw() error = %v, want %v", err, ErrSegmentedCompressionNotImplemented)
+	if _, err := ref.OpenRaw(); !errors.Is(err, ErrCompressionUnitAccessNotImplemented) {
+		t.Fatalf("OpenRaw() error = %v, want %v", err, ErrCompressionUnitAccessNotImplemented)
 	}
 }
 
