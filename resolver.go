@@ -1,65 +1,70 @@
 package unwarc
 
-func (s *Scanner) resolveLocation(record Range) RecordLocation {
-	loc := RecordLocation{
-		Uncomp: record,
-		Access: AccessPending,
-		Final:  true,
+func (s *Scanner) resolveRecord(record Range) recordResolution {
+	resolution := recordResolution{
+		location: RecordLocation{
+			Uncompressed: record,
+			Access:       AccessInvalid,
+		},
 	}
 
 	if s.stream.Compression() == CompressionPlain {
-		loc.Access = AccessExact
-		loc.CompRanges = []Range{{Off: record.Off, Size: record.Size}}
-		return loc
+		if s.source == nil {
+			resolution.location.Access = AccessStreamOnly
+			return resolution
+		}
+		resolution.location.Access = AccessExact
+		resolution.raw = newDecodePlan(
+			[]Range{{Off: record.Off, Size: record.Size}},
+			Range{Off: 0, Size: record.Size},
+		)
+		return resolution
 	}
 
-	compression := s.stream.Compression()
-	switch compression {
+	switch s.stream.Compression() {
 	case CompressionGzip, CompressionZstd:
-		return s.resolveCompressionUnitLocation(loc, record)
+		return s.resolveCompressionUnitRecord(resolution, record)
 	case CompressionBzip2, CompressionXZ:
-		if s.source != nil {
-			loc.Access = AccessFromFileStart
-		} else {
-			loc.Access = AccessStreamOnly
+		if s.source == nil {
+			resolution.location.Access = AccessStreamOnly
+			return resolution
 		}
-		return loc
+		resolution.location.Access = AccessFromFileStart
+		resolution.raw = newDecodePlan(
+			[]Range{{Off: 0, Size: -1}},
+			Range{Off: record.Off, Size: record.Size},
+		)
+		return resolution
 	default:
-		loc.Access = AccessInvalid
-		loc.Issues = append(loc.Issues, Issue{
+		resolution.issues = append(resolution.issues, Issue{
 			Code:    IssueUnsupportedCompression,
 			Message: "unsupported compression",
 		})
-		return loc
+		return resolution
 	}
 }
 
-func (s *Scanner) resolveCompressionUnitLocation(loc RecordLocation, record Range) RecordLocation {
-	var overlapping []CompressionUnit
+func (s *Scanner) resolveCompressionUnitRecord(resolution recordResolution, record Range) recordResolution {
+	var overlapping []compressionUnit
 	for _, unit := range s.stream.CompletedUnits() {
-		if !unit.ProducesWARCBytes {
-			continue
-		}
-		if rangesOverlap(unit.Uncomp, record) {
+		if unit.ProducesWARCBytes && rangesOverlap(unit.Uncomp, record) {
 			overlapping = append(overlapping, unit)
 		}
 	}
-	if cur := s.stream.CurrentUnit(); cur != nil && cur.ProducesWARCBytes && rangesOverlap(cur.Uncomp, record) {
-		overlapping = append(overlapping, *cur)
+	if current := s.stream.CurrentUnit(); current != nil && current.ProducesWARCBytes && rangesOverlap(current.Uncomp, record) {
+		overlapping = append(overlapping, *current)
 	}
 	if len(overlapping) == 0 {
-		loc.Access = AccessInvalid
-		return loc
+		return resolution
 	}
 	if s.stream.Compression() == CompressionZstd {
-		loc.Issues = append(loc.Issues, zstdFrameRequirementIssues(overlapping)...)
+		resolution.issues = append(resolution.issues, zstdFrameRequirementIssues(overlapping)...)
 	}
 
 	first := overlapping[0]
 	last := overlapping[len(overlapping)-1]
-	recordEnd := record.End()
 	startsAtUnitBoundary := record.Off == first.Uncomp.Off
-	endsAtUnitBoundary := last.Uncomp.Valid() && recordEnd == last.Uncomp.End() && last.Comp.Size >= 0
+	endsAtUnitBoundary := last.Uncomp.Valid() && record.End() == last.Uncomp.End() && last.Comp.Size >= 0
 	coversWholeUnits := startsAtUnitBoundary && endsAtUnitBoundary
 	for i, unit := range overlapping {
 		if i == 0 || i == len(overlapping)-1 {
@@ -72,53 +77,55 @@ func (s *Scanner) resolveCompressionUnitLocation(loc RecordLocation, record Rang
 	}
 
 	if coversWholeUnits {
-		loc.Access = AccessExact
-		for _, unit := range overlapping {
-			loc.CompRanges = append(loc.CompRanges, unit.Comp)
+		if s.source == nil {
+			resolution.location.Access = AccessStreamOnly
+		} else {
+			compressed := make([]Range, 0, len(overlapping))
+			for _, unit := range overlapping {
+				compressed = append(compressed, unit.Comp)
+			}
+			resolution.location.Access = AccessExact
+			resolution.raw = newDecodePlan(compressed, Range{Off: 0, Size: record.Size})
 		}
 		if s.stream.Compression() == CompressionGzip && len(overlapping) > 1 {
-			loc.Issues = append(loc.Issues, Issue{
+			resolution.issues = append(resolution.issues, Issue{
 				Code:    IssueRecordSpansGzipMembers,
 				Message: "WARC record spans multiple gzip members",
 			})
 		}
-		return loc
+		return resolution
 	}
 
-	restart := Range{Off: first.Comp.Off, Size: first.Comp.Size}
-	if restart.Size < 0 {
-		restart.Size = -1
-	}
-	loc.RestartRange = &restart
-	// RestartRange.Off is the compression-unit start. RestartUncompOff is the
-	// same point expressed in the global decoded WARC stream.
-	loc.RestartUncompOff = first.Uncomp.Off
-	if s.source != nil {
-		loc.Access = AccessFromCompressionUnitStart
+	if s.source == nil {
+		resolution.location.Access = AccessStreamOnly
 	} else {
-		loc.Access = AccessStreamOnly
+		resolution.location.Access = AccessFromCompressionUnitStart
+		resolution.raw = newDecodePlan(
+			[]Range{{Off: first.Comp.Off, Size: -1}},
+			Range{Off: record.Off - first.Uncomp.Off, Size: record.Size},
+		)
 	}
 
 	switch first.Kind {
-	case CompressionUnitGzipMember:
-		loc.Issues = append(loc.Issues, Issue{
+	case compressionUnitGzipMember:
+		resolution.issues = append(resolution.issues, Issue{
 			Code:    IssueSolidGzipMember,
 			Message: "gzip member contains a partial record or multiple records",
 		})
-	case CompressionUnitZstdFrame:
-		loc.Issues = append(loc.Issues, Issue{
+	case compressionUnitZstdFrame:
+		resolution.issues = append(resolution.issues, Issue{
 			Code:    IssueFrameContainsMultipleRecords,
 			Message: "zstd frame contains a partial record boundary or multiple records",
 		})
 	}
 
-	return loc
+	return resolution
 }
 
-func zstdFrameRequirementIssues(units []CompressionUnit) []Issue {
+func zstdFrameRequirementIssues(units []compressionUnit) []Issue {
 	var issues []Issue
 	for _, unit := range units {
-		if unit.Kind != CompressionUnitZstdFrame {
+		if unit.Kind != compressionUnitZstdFrame {
 			continue
 		}
 		if !unit.ZstdHasFrameContentSize {

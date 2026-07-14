@@ -378,7 +378,7 @@ func scanRealCorpusVariant(path string, opts ScannerOptions) (stats realCorpusSt
 		}
 		stats.Records++
 		stats.BlockBytes += n
-		for _, issue := range ref.Location.Issues {
+		for _, issue := range ref.issues {
 			issues[issue.Code]++
 		}
 	}

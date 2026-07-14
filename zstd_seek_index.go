@@ -51,9 +51,10 @@ func OpenWARCZstdSeekIndexWithOptions(source RandomAccessSource, opts WARCZstdSe
 	}
 	defer closeIndexSource()
 
+	decode := newRecordDecodeContext(source, CompressionZstd, nil)
 	var reversed []seekIndexedRecord
 	for end := size; end > 0; {
-		record, err := readSeekIndexedRecord(indexSource, source, end, opts.FoldedFields)
+		record, err := readSeekIndexedRecord(indexSource, decode, end, opts.FoldedFields)
 		if err != nil {
 			return nil, err
 		}
@@ -66,7 +67,7 @@ func OpenWARCZstdSeekIndexWithOptions(source RandomAccessSource, opts WARCZstdSe
 	for i := len(reversed) - 1; i >= 0; i-- {
 		record := reversed[i]
 		ref := record.ref
-		ref.Location.Uncomp = Range{Off: uncompOff, Size: record.uncompSize}
+		ref.location.Uncompressed = Range{Off: uncompOff, Size: record.uncompSize}
 		uncompOff += record.uncompSize
 		records = append(records, ref)
 	}
@@ -106,13 +107,13 @@ type zstdSeekEntry struct {
 	uncompSize uint32
 }
 
-func readSeekIndexedRecord(indexSource, refSource RandomAccessSource, end int64, foldedFields FoldedFieldPolicy) (seekIndexedRecord, error) {
+func readSeekIndexedRecord(indexSource RandomAccessSource, decode *recordDecodeContext, end int64, foldedFields FoldedFieldPolicy) (seekIndexedRecord, error) {
 	entries, table, err := readRecordLocalSeekTable(indexSource, end)
 	if err != nil {
 		return seekIndexedRecord{}, err
 	}
 	if len(entries) == 1 {
-		return readSeekIndexedEmptyRecord(indexSource, refSource, entries[0], table, foldedFields)
+		return readSeekIndexedEmptyRecord(indexSource, decode, entries[0], table, foldedFields)
 	}
 	recordHeaderEntry := entries[0]
 	if recordHeaderEntry.compSize == 0 || recordHeaderEntry.uncompSize == 0 {
@@ -146,7 +147,7 @@ func readSeekIndexedRecord(indexSource, refSource RandomAccessSource, end int64,
 	if err != nil {
 		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: invalid WARC record header: %w", ErrNotSeekIndexed, recordHeaderComp.Off, err)
 	}
-	blockDecodeRanges, blockFrameMappings := indexedBlockLayout(entries[1:], blockStart, contentLength)
+	postHeaderRanges, blockFrameMappings := indexedBlockLayout(entries[1:], blockStart, contentLength)
 	trailerLen := blockUncompSize - contentLength
 	if trailerLen < 0 {
 		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: block frames are shorter than Content-Length", ErrNotSeekIndexed, blockStart)
@@ -154,26 +155,25 @@ func readSeekIndexedRecord(indexSource, refSource RandomAccessSource, end int64,
 
 	recordComp := Range{Off: recordHeaderComp.Off, Size: table.End() - recordHeaderComp.Off}
 	recordUncompSize := int64(recordHeaderEntry.uncompSize) + blockUncompSize
-	compRanges := make([]Range, 0, len(blockDecodeRanges)+1)
+	compRanges := make([]Range, 0, len(postHeaderRanges)+1)
 	compRanges = append(compRanges, recordHeaderComp)
-	compRanges = append(compRanges, blockDecodeRanges...)
+	compRanges = append(compRanges, postHeaderRanges...)
 	ref := &RecordRef{
 		Header:        header,
 		RawHeader:     rawRecordHeader,
 		ContentLength: contentLength,
 		HeaderLen:     int64(len(rawRecordHeader)),
 		TrailerLen:    trailerLen,
-		Location: RecordLocation{
-			Uncomp:             Range{Off: 0, Size: recordUncompSize},
-			CompRanges:         compRanges,
-			BlockDecodeRanges:  blockDecodeRanges,
-			BlockFrameMappings: blockFrameMappings,
-			Access:             AccessExact,
-			Final:              true,
-		},
-		source:      refSource,
-		compression: CompressionZstd,
+		decode:        decode,
 	}
+	ref.finalize(recordResolution{
+		location: RecordLocation{
+			Uncompressed: Range{Off: 0, Size: recordUncompSize},
+			Access:       AccessExact,
+		},
+		raw:   newDecodePlan(compRanges, Range{Off: 0, Size: recordUncompSize}),
+		block: newBlockIndex(blockFrameMappings),
+	})
 	return seekIndexedRecord{
 		ref:        ref,
 		comp:       recordComp,
@@ -181,7 +181,7 @@ func readSeekIndexedRecord(indexSource, refSource RandomAccessSource, end int64,
 	}, nil
 }
 
-func readSeekIndexedEmptyRecord(indexSource, refSource RandomAccessSource, entry zstdSeekEntry, table Range, foldedFields FoldedFieldPolicy) (seekIndexedRecord, error) {
+func readSeekIndexedEmptyRecord(indexSource RandomAccessSource, decode *recordDecodeContext, entry zstdSeekEntry, table Range, foldedFields FoldedFieldPolicy) (seekIndexedRecord, error) {
 	if entry.compSize == 0 || entry.uncompSize == 0 {
 		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: empty seek table entry", ErrNotSeekIndexed, table.Off)
 	}
@@ -211,15 +211,18 @@ func readSeekIndexedEmptyRecord(indexSource, refSource RandomAccessSource, entry
 		ContentLength: 0,
 		HeaderLen:     int64(len(rawRecordHeader)),
 		TrailerLen:    trailerLen,
-		Location: RecordLocation{
-			Uncomp:     Range{Off: 0, Size: int64(entry.uncompSize)},
-			CompRanges: []Range{recordComp},
-			Access:     AccessExact,
-			Final:      true,
-		},
-		source:      refSource,
-		compression: CompressionZstd,
+		decode:        decode,
 	}
+	ref.finalize(recordResolution{
+		location: RecordLocation{
+			Uncompressed: Range{Off: 0, Size: int64(entry.uncompSize)},
+			Access:       AccessExact,
+		},
+		raw: newDecodePlan(
+			[]Range{recordComp},
+			Range{Off: 0, Size: int64(entry.uncompSize)},
+		),
+	})
 	return seekIndexedRecord{
 		ref:        ref,
 		comp:       Range{Off: recordComp.Off, Size: table.End() - recordComp.Off},
@@ -313,8 +316,8 @@ func indexedBlockLayout(entries []zstdSeekEntry, compStart, contentLength int64)
 			}
 			if blockSize > 0 {
 				mappings = append(mappings, BlockFrameMapping{
-					Comp:  comp,
-					Block: Range{Off: blockOff, Size: blockSize},
+					Compressed: comp,
+					Block:      Range{Off: blockOff, Size: blockSize},
 				})
 			}
 		}

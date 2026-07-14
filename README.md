@@ -21,8 +21,9 @@ should still be treated as evolving until a first tagged release.
 - Whole-file xz `.xz`
 
 Lazy random access is strongest for plain, gzip, and zstd. bzip2 and xz are
-decoded as whole-file streams; independent per-compression-unit lazy access for
-those formats intentionally returns `ErrCompressionUnitAccessNotImplemented`.
+decoded as whole-file streams, so lazy reopening starts at the beginning of the
+file. Concatenated xz streams are not currently supported and return
+`ErrCompressionUnitAccessNotImplemented`.
 
 ## WARC Terminology
 
@@ -48,24 +49,6 @@ This package follows the WARC grammar's hierarchy:
 Record headers and `application/warc-fields` blocks therefore share named-field
 syntax, but they are not the same structure.
 
-### API terminology migration
-
-The pre-release API previously used “payload” for record-block bytes. Update
-callers as follows; compatibility aliases are intentionally not retained:
-
-| Previous API | Replacement |
-| --- | --- |
-| `Scanner.NextPayload` | `Scanner.NextRecord` plus `RecordReader.Block` |
-| `RecordRef.OpenPayload` | `RecordRef.OpenBlock` |
-| `RecordRef.OpenPayloadRange` | `RecordRef.OpenBlockRange` |
-| `RecordLocation.PayloadCompRanges` | `RecordLocation.BlockDecodeRanges` |
-| `RecordLocation.PayloadFrames` | `RecordLocation.BlockFrameMappings` |
-| `RecordPayloadFrame` | `BlockFrameMapping` |
-| `Segment` / `SegmentKind` | `CompressionUnit` / `CompressionUnitKind` |
-| `Segment*` constants | `CompressionUnit*` constants |
-| `AccessFromSegmentStart` | `AccessFromCompressionUnitStart` |
-| `ErrSegmentedCompressionNotImplemented` | `ErrCompressionUnitAccessNotImplemented` |
-
 ## Strict Mode
 
 `ScannerOptions.Strict` makes malformed record trailers fatal. For WARC-zstd it
@@ -73,8 +56,8 @@ also enforces the format requirements that each zstd frame must include
 `Frame_Content_Size` and `Content_Checksum`, and that a single zstd frame must
 not contain multiple WARC records.
 
-Non-strict scans keep parsing when possible and record diagnostics in
-`RecordRef.Location.Issues`. In non-strict mode, zstd frames without
+Non-strict scans keep parsing when possible and expose diagnostics through
+`RecordRef.Issues()`. In non-strict mode, zstd frames without
 `Frame_Content_Size` are decoded as streams and can still be lazy-opened after
 finalization when their compressed range is known and the record covers the
 whole frame.
@@ -189,10 +172,10 @@ if err := scanner.Err(); err != nil {
 }
 ```
 
-References returned by `RecordReader.Ref` may be unfinalized
-(`RecordRef.Location.Final == false`) until the block reaches EOF or the record
-is closed. Calling `OpenRaw` or `OpenBlock` before finalization returns
-`ErrRecordLocationPending`. While a `NextRecord` reader is active,
+References returned by `RecordReader.Ref` may remain unfinalized until the
+block reaches EOF or the record is closed. Check `RecordRef.Finalized()` when
+using the streaming API. Calling `OpenRaw` or `OpenBlock` before finalization
+returns `ErrRecordLocationPending`. While a `NextRecord` reader is active,
 `Scanner.RecordRef()` returns `nil`; use `record.Ref()` for header inspection
 before finalization. Calling `NextRecord`, `Next`, `Err`, or `Scanner.Close`
 automatically closes and drains an active record; any trailer or compression
@@ -208,6 +191,12 @@ re-read and re-decompress compressed data when `OpenRaw` or `OpenBlock` is
 called. Keep the source backing bytes stable until all lazy readers are closed;
 `FileSource` reopens by path, so the file must not be replaced while collected
 references are being processed.
+
+After finalization, `RecordRef.Location()` reports the record's global
+uncompressed range and its `AccessMode`. Compression-specific decode plans stay
+internal; callers normally use `OpenRaw`, `OpenBlock`, or `OpenBlockRange`.
+`RecordRef.BlockIndex()` separately exposes parsed frame mappings when an
+indexed input provides them.
 
 ```go
 source := unwarc.NewFileSource("crawl.warc.zst")
@@ -342,12 +331,12 @@ Block frames are not decoded while building the index; `OpenBlock` can later
 reopen only the block frame ranges.
 
 Small records can use a single block frame. Large records can split block bytes
-across many smaller frames; `RecordLocation.BlockFrameMappings` maps each
+across many smaller frames. When available, `RecordRef.BlockIndex()` maps each
 block-producing compressed frame to its block-relative byte range, and
-`OpenBlockRange` uses those mappings to reopen only overlapping frames. A
-trailing frame that contains only the WARC record trailer may appear in
-`BlockDecodeRanges`, but it is not listed in `BlockFrameMappings` because it
-does not contribute block bytes.
+`OpenBlockRange` uses those mappings to reopen only overlapping frames. A frame
+that contains only the WARC record trailer is not part of the block index
+because it contributes no block bytes. Without a block index, block reads fall
+back to the record's general decode plan.
 
 For HTTP response/request records, the WARC record block contains an HTTP
 message. Writers may split that block at the HTTP header/body boundary as a
@@ -363,9 +352,8 @@ skippable frame: record-local zstd seek table
 
 The table still stores only generic frame sizes. The reader treats these as
 ordinary block frames; higher layers that parse HTTP can use
-`RecordLocation.BlockFrameMappings` plus their own parsed HTTP header length to
-find the first body frame. The reader does not label frames as HTTP header or
-body.
+`RecordRef.BlockIndex()` plus their own parsed HTTP header length to find the
+first body frame. The reader does not label frames as HTTP header or body.
 
 Writer recommendation:
 
@@ -447,7 +435,11 @@ if err != nil {
 for scanner.Next() {
 	ref := scanner.RecordRef()
 	warcType, _ := ref.Header.Get("WARC-Type")
-	fmt.Println(warcType, ref.ContentLength, ref.Location.Access)
+	location, ok := ref.Location()
+	if !ok {
+		return fmt.Errorf("record was not finalized")
+	}
+	fmt.Println(warcType, ref.ContentLength, location.Access)
 }
 if err := scanner.Err(); err != nil {
 	return err

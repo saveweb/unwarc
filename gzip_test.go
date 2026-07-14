@@ -61,7 +61,7 @@ func TestGzipSourceNextRecordFinalizesAfterBlockRead(t *testing.T) {
 	}
 	ref := recordReader.Ref()
 	if ref.Finalized() {
-		t.Fatalf("ref was finalized before block was consumed: %+v", ref.Location)
+		t.Fatalf("ref was finalized before block was consumed: %+v", ref.location)
 	}
 	if _, err := ref.OpenRaw(); !errors.Is(err, ErrRecordLocationPending) {
 		t.Fatalf("OpenRaw before finalization error = %v, want %v", err, ErrRecordLocationPending)
@@ -81,7 +81,7 @@ func TestGzipSourceNextRecordFinalizesAfterBlockRead(t *testing.T) {
 		t.Fatalf("block = %q, want %q", got, block)
 	}
 	if !ref.Finalized() {
-		t.Fatalf("ref was not finalized after block read: %+v", ref.Location)
+		t.Fatalf("ref was not finalized after block read: %+v", ref.location)
 	}
 	assertExactRanges(t, ref, Range{Off: 0, Size: int64(len(member))})
 
@@ -125,7 +125,7 @@ func TestGzipSourceNextRecordCloseFinalizesRecord(t *testing.T) {
 	}
 
 	if !ref.Finalized() {
-		t.Fatalf("ref was not finalized after block close: %+v", ref.Location)
+		t.Fatalf("ref was not finalized after block close: %+v", ref.location)
 	}
 	assertExactRanges(t, ref, Range{Off: 0, Size: int64(len(member))})
 
@@ -197,8 +197,8 @@ func TestGzipSolidMemberAccessModes(t *testing.T) {
 			t.Fatalf("expected 2 records, got %d", len(refs))
 		}
 		for _, ref := range refs {
-			if ref.Location.Access != AccessStreamOnly {
-				t.Fatalf("expected stream-only access, got %+v", ref.Location)
+			if ref.location.Access != AccessStreamOnly {
+				t.Fatalf("expected stream-only access, got %+v", ref.location)
 			}
 			assertIssue(t, ref, IssueSolidGzipMember)
 		}
@@ -216,11 +216,11 @@ func TestGzipSolidMemberAccessModes(t *testing.T) {
 			t.Fatalf("expected 2 records, got %d", len(refs))
 		}
 		for _, ref := range refs {
-			if ref.Location.Access != AccessFromCompressionUnitStart {
-				t.Fatalf("expected restart access, got %+v", ref.Location)
+			if ref.location.Access != AccessFromCompressionUnitStart {
+				t.Fatalf("expected restart access, got %+v", ref.location)
 			}
-			if ref.Location.RestartRange == nil || ref.Location.RestartRange.Off != 0 {
-				t.Fatalf("unexpected restart range: %+v", ref.Location.RestartRange)
+			if ref.rawPlan == nil || len(ref.rawPlan.compressed) != 1 || ref.rawPlan.compressed[0].Off != 0 {
+				t.Fatalf("unexpected replay plan: %+v", ref.rawPlan)
 			}
 			assertIssue(t, ref, IssueSolidGzipMember)
 		}
@@ -232,7 +232,7 @@ func TestGzipSolidMemberAccessModes(t *testing.T) {
 	})
 }
 
-func TestGzipRestartUncompOffsetSkipsFromCompressionUnitStart(t *testing.T) {
+func TestGzipDecodePlanSkipsFromCompressionUnitStart(t *testing.T) {
 	earlierRecord := makeRecord("warcinfo", "<urn:uuid:gzip-restart-earlier>", []byte("earlier"))
 	block2 := []byte("second")
 	block3 := []byte("third")
@@ -256,14 +256,18 @@ func TestGzipRestartUncompOffsetSkipsFromCompressionUnitStart(t *testing.T) {
 
 	assertExactRanges(t, refs[0], Range{Off: 0, Size: int64(len(member1))})
 	for i, ref := range refs[1:] {
-		if ref.Location.Access != AccessFromCompressionUnitStart {
-			t.Fatalf("record %d access = %s, want %s: %+v", i+1, ref.Location.Access, AccessFromCompressionUnitStart, ref.Location)
+		if ref.location.Access != AccessFromCompressionUnitStart {
+			t.Fatalf("record %d access = %s, want %s: %+v", i+1, ref.location.Access, AccessFromCompressionUnitStart, ref.location)
 		}
-		if ref.Location.RestartRange == nil || ref.Location.RestartRange.Off != int64(len(member1)) {
-			t.Fatalf("record %d restart range = %+v, want second gzip member", i+1, ref.Location.RestartRange)
+		if ref.rawPlan == nil || len(ref.rawPlan.compressed) != 1 || ref.rawPlan.compressed[0].Off != int64(len(member1)) {
+			t.Fatalf("record %d replay plan = %+v, want second gzip member", i+1, ref.rawPlan)
 		}
-		if ref.Location.RestartUncompOff != int64(len(earlierRecord)) {
-			t.Fatalf("record %d RestartUncompOff = %d, want %d", i+1, ref.Location.RestartUncompOff, len(earlierRecord))
+		wantSkip := int64(0)
+		if i == 1 {
+			wantSkip = int64(len(record2))
+		}
+		if ref.rawPlan.decoded.Off != wantSkip {
+			t.Fatalf("record %d decoded skip = %d, want %d", i+1, ref.rawPlan.decoded.Off, wantSkip)
 		}
 		assertIssue(t, ref, IssueSolidGzipMember)
 	}
@@ -297,14 +301,14 @@ func TestGzipRecordSpansMembersIssueAndLazyRaw(t *testing.T) {
 		t.Fatalf("expected 1 record, got %d", len(refs))
 	}
 	ref := refs[0]
-	if ref.Location.Access != AccessExact {
-		t.Fatalf("expected exact access for member-spanning record, got %+v", ref.Location)
+	if ref.location.Access != AccessExact {
+		t.Fatalf("expected exact access for member-spanning record, got %+v", ref.location)
 	}
-	if len(ref.Location.CompRanges) != 2 {
-		t.Fatalf("expected 2 gzip member ranges, got %+v", ref.Location.CompRanges)
+	if len(ref.rawPlan.compressed) != 2 {
+		t.Fatalf("expected 2 gzip member ranges, got %+v", ref.rawPlan.compressed)
 	}
-	if ref.Location.CompRanges[0].Size != int64(len(member1)) || ref.Location.CompRanges[1].Size != int64(len(member2)) {
-		t.Fatalf("unexpected compressed ranges: %+v", ref.Location.CompRanges)
+	if ref.rawPlan.compressed[0].Size != int64(len(member1)) || ref.rawPlan.compressed[1].Size != int64(len(member2)) {
+		t.Fatalf("unexpected compressed ranges: %+v", ref.rawPlan.compressed)
 	}
 	assertIssue(t, ref, IssueRecordSpansGzipMembers)
 
@@ -343,8 +347,8 @@ func TestGzipCompressionUnknownDetection(t *testing.T) {
 			if len(refs) != 1 {
 				t.Fatalf("expected 1 record, got %d", len(refs))
 			}
-			if refs[0].Location.Access != AccessExact {
-				t.Fatalf("expected exact access, got %+v", refs[0].Location)
+			if refs[0].location.Access != AccessExact {
+				t.Fatalf("expected exact access, got %+v", refs[0].location)
 			}
 
 			got := readAllFrom(t, refs[0].OpenBlock)

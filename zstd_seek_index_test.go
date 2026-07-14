@@ -41,16 +41,13 @@ func TestWARCZstdSeekIndexBuildsRefsWithoutDecodingBlockFrames(t *testing.T) {
 	var uncompOff int64
 	for i, ref := range refs {
 		want := fixture.records[i]
-		if ref.Location.Uncomp != (Range{Off: uncompOff, Size: int64(len(want.rawHeader) + len(want.blockWithTrailer))}) {
-			t.Fatalf("record %d uncomp = %+v, want off=%d size=%d", i, ref.Location.Uncomp, uncompOff, len(want.rawHeader)+len(want.blockWithTrailer))
+		if ref.location.Uncompressed != (Range{Off: uncompOff, Size: int64(len(want.rawHeader) + len(want.blockWithTrailer))}) {
+			t.Fatalf("record %d uncomp = %+v, want off=%d size=%d", i, ref.location.Uncompressed, uncompOff, len(want.rawHeader)+len(want.blockWithTrailer))
 		}
-		uncompOff += ref.Location.Uncomp.Size
+		uncompOff += ref.location.Uncompressed.Size
 		assertExactRanges(t, ref, want.headerRange, want.blockRange)
-		if len(ref.Location.BlockDecodeRanges) != 1 || ref.Location.BlockDecodeRanges[0] != want.blockRange {
-			t.Fatalf("record %d block ranges = %+v, want %+v", i, ref.Location.BlockDecodeRanges, []Range{want.blockRange})
-		}
-		if len(ref.Location.BlockFrameMappings) != 1 || ref.Location.BlockFrameMappings[0].Block != (Range{Off: 0, Size: int64(len(want.block))}) {
-			t.Fatalf("record %d block frames = %+v, want single full-block frame", i, ref.Location.BlockFrameMappings)
+		if ref.blockIndex == nil || len(ref.blockIndex.frames) != 1 || ref.blockIndex.frames[0].Block != (Range{Off: 0, Size: int64(len(want.block))}) {
+			t.Fatalf("record %d block index = %+v, want single full-block frame", i, ref.blockIndex)
 		}
 		if ref.ContentLength != int64(len(want.block)) {
 			t.Fatalf("record %d ContentLength = %d, want %d", i, ref.ContentLength, len(want.block))
@@ -130,15 +127,20 @@ func TestWARCZstdSeekIndexSupportsChunkedBlockFrames(t *testing.T) {
 		t.Fatal(err)
 	}
 	ref := index.Records()[0]
-	if len(ref.Location.BlockDecodeRanges) != len(fixture.records[0].blockRanges) {
-		t.Fatalf("block compressed ranges = %+v, want %+v", ref.Location.BlockDecodeRanges, fixture.records[0].blockRanges)
+	if ref.blockIndex == nil || len(ref.blockIndex.frames) != len(fixture.records[0].blockChunks) {
+		t.Fatalf("block index = %+v", ref.blockIndex)
 	}
-	if len(ref.Location.BlockFrameMappings) != len(fixture.records[0].blockChunks) {
-		t.Fatalf("block frames = %+v", ref.Location.BlockFrameMappings)
+	publicIndex, ok := ref.BlockIndex()
+	if !ok || len(publicIndex.Frames) != len(ref.blockIndex.frames) {
+		t.Fatalf("BlockIndex() = %+v, %t", publicIndex, ok)
 	}
-	for i, frame := range ref.Location.BlockFrameMappings {
-		if frame.Comp != fixture.records[0].blockRanges[i] {
-			t.Fatalf("block frame %d comp = %+v, want %+v", i, frame.Comp, fixture.records[0].blockRanges[i])
+	publicIndex.Frames[0].Block.Off = -1
+	if ref.blockIndex.frames[0].Block.Off != 0 {
+		t.Fatal("BlockIndex returned mutable internal frame mappings")
+	}
+	for i, frame := range ref.blockIndex.frames {
+		if frame.Compressed != fixture.records[0].blockRanges[i] {
+			t.Fatalf("block frame %d compressed = %+v, want %+v", i, frame.Compressed, fixture.records[0].blockRanges[i])
 		}
 		if frame.Block != (Range{Off: int64(i * 5), Size: 5}) {
 			t.Fatalf("block frame %d block = %+v, want off=%d size=5", i, frame.Block, i*5)
@@ -185,8 +187,8 @@ func TestWARCZstdSeekIndexSupportsSingleFrameEmptyRecord(t *testing.T) {
 	if ref.ContentLength != 0 {
 		t.Fatalf("ContentLength = %d, want 0", ref.ContentLength)
 	}
-	if len(ref.Location.BlockDecodeRanges) != 0 || len(ref.Location.BlockFrameMappings) != 0 {
-		t.Fatalf("block ranges = %+v frames = %+v, want none", ref.Location.BlockDecodeRanges, ref.Location.BlockFrameMappings)
+	if ref.blockIndex != nil {
+		t.Fatalf("block index = %+v, want none", ref.blockIndex)
 	}
 	assertExactRanges(t, ref, fixture.records[0].recordRange)
 
@@ -221,11 +223,11 @@ func TestWARCZstdSeekIndexSupportsTwoFrameEmptyRecord(t *testing.T) {
 	if ref.ContentLength != 0 {
 		t.Fatalf("ContentLength = %d, want 0", ref.ContentLength)
 	}
-	if len(ref.Location.BlockDecodeRanges) != 1 {
-		t.Fatalf("block comp ranges = %+v, want trailer-only frame", ref.Location.BlockDecodeRanges)
+	if ref.blockIndex != nil {
+		t.Fatalf("block index = %+v, want none for zero block", ref.blockIndex)
 	}
-	if len(ref.Location.BlockFrameMappings) != 0 {
-		t.Fatalf("block frames = %+v, want none for zero block", ref.Location.BlockFrameMappings)
+	if len(ref.rawPlan.compressed) != 2 || ref.rawPlan.compressed[1] != fixture.records[0].blockRange {
+		t.Fatalf("raw decode ranges = %+v, want trailer frame %v", ref.rawPlan.compressed, fixture.records[0].blockRange)
 	}
 	block := readAllFrom(t, ref.OpenBlock)
 	if len(block) != 0 {

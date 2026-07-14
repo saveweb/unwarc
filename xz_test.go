@@ -67,11 +67,11 @@ func TestScannerXZCompressionUnknownDetection(t *testing.T) {
 			if len(refs) != 1 {
 				t.Fatalf("expected 1 record, got %d", len(refs))
 			}
-			if refs[0].Location.Access != AccessFromFileStart {
-				t.Fatalf("expected from-file-start access, got %+v", refs[0].Location)
+			if refs[0].location.Access != AccessFromFileStart {
+				t.Fatalf("expected from-file-start access, got %+v", refs[0].location)
 			}
-			if refs[0].compression != CompressionXZ {
-				t.Fatalf("compression = %s, want %s", refs[0].compression, CompressionXZ)
+			if refs[0].decode.compression != CompressionXZ {
+				t.Fatalf("compression = %s, want %s", refs[0].decode.compression, CompressionXZ)
 			}
 
 			got := readAllFrom(t, refs[0].OpenBlock)
@@ -102,20 +102,18 @@ func TestScannerXZConcatenatedStreamsNotImplemented(t *testing.T) {
 	}
 }
 
-func TestScannerXZExactCompressionUnitLazyNotImplemented(t *testing.T) {
-	stream := xzStream(t, makeRecord("warcinfo", "<urn:uuid:xz-exact>", []byte("ABC")))
-	ref := &RecordRef{
-		Location: RecordLocation{
-			Access:     AccessExact,
-			Final:      true,
-			CompRanges: []Range{{Off: 0, Size: int64(len(stream))}},
-		},
-		source:      newBytesSource(stream),
-		compression: CompressionXZ,
-	}
-
-	if _, err := ref.OpenRaw(); !errors.Is(err, ErrCompressionUnitAccessNotImplemented) {
-		t.Fatalf("OpenRaw() error = %v, want %v", err, ErrCompressionUnitAccessNotImplemented)
+func TestScannerXZExactDecodePlan(t *testing.T) {
+	want := makeRecord("warcinfo", "<urn:uuid:xz-exact>", []byte("ABC"))
+	stream := xzStream(t, want)
+	ref := newResolvedTestRef(
+		newBytesSource(stream),
+		CompressionXZ,
+		AccessExact,
+		[]Range{{Off: 0, Size: int64(len(stream))}},
+		Range{Off: 0, Size: int64(len(want))},
+	)
+	if got := readAllFrom(t, ref.OpenRaw); !bytes.Equal(got, want) {
+		t.Fatalf("OpenRaw() = %q, want %q", got, want)
 	}
 }
 
@@ -187,20 +185,20 @@ func assertXZRecords(t *testing.T, scanner *Scanner, wantAccess AccessMode, want
 		}
 		ref := scanner.RecordRef()
 		refs = append(refs, ref)
-		if ref.compression != CompressionXZ {
-			t.Fatalf("record %d compression = %s, want %s", i+1, ref.compression, CompressionXZ)
+		if ref.decode.compression != CompressionXZ {
+			t.Fatalf("record %d compression = %s, want %s", i+1, ref.decode.compression, CompressionXZ)
 		}
-		if ref.Location.Access != wantAccess {
-			t.Fatalf("record %d access = %s, want %s: %+v", i+1, ref.Location.Access, wantAccess, ref.Location)
+		if ref.location.Access != wantAccess {
+			t.Fatalf("record %d access = %s, want %s: %+v", i+1, ref.location.Access, wantAccess, ref.location)
 		}
-		if ref.Location.Uncomp != wantRange {
-			t.Fatalf("record %d uncomp range = %+v, want %+v", i+1, ref.Location.Uncomp, wantRange)
+		if ref.location.Uncompressed != wantRange {
+			t.Fatalf("record %d uncomp range = %+v, want %+v", i+1, ref.location.Uncompressed, wantRange)
 		}
-		if !ref.Location.Final {
+		if !ref.finalized {
 			t.Fatalf("record %d final = false, want true", i+1)
 		}
-		if len(ref.Location.Issues) != 0 {
-			t.Fatalf("record %d issues = %+v, want none", i+1, ref.Location.Issues)
+		if len(ref.issues) != 0 {
+			t.Fatalf("record %d issues = %+v, want none", i+1, ref.issues)
 		}
 	}
 	if scanner.Next() {

@@ -31,8 +31,8 @@ func TestPlainSourceLazyAccess(t *testing.T) {
 			var off int64
 			for i, ref := range refs {
 				wantRange := Range{Off: off, Size: int64(len(records[i]))}
-				if ref.Location.Uncomp != wantRange {
-					t.Fatalf("record %d uncomp range = %+v, want %+v", i, ref.Location.Uncomp, wantRange)
+				if ref.location.Uncompressed != wantRange {
+					t.Fatalf("record %d uncomp range = %+v, want %+v", i, ref.location.Uncompressed, wantRange)
 				}
 				assertExactRanges(t, ref, wantRange)
 				if ref.ContentLength != int64(len(blocks[i])) {
@@ -127,11 +127,13 @@ func TestPlainStreamCompressionUnknownFallsBackToPlain(t *testing.T) {
 		t.Fatalf("expected record: %v", scanner.Err())
 	}
 	ref := scanner.RecordRef()
-	if ref.compression != CompressionPlain {
-		t.Fatalf("compression = %s, want %s", ref.compression, CompressionPlain)
+	if ref.decode.compression != CompressionPlain {
+		t.Fatalf("compression = %s, want %s", ref.decode.compression, CompressionPlain)
 	}
 	wantRange := Range{Off: 0, Size: int64(len(data))}
-	assertExactRanges(t, ref, wantRange)
+	if ref.location.Uncompressed != wantRange || ref.location.Access != AccessStreamOnly {
+		t.Fatalf("location = %+v, want stream-only at %+v", ref.location, wantRange)
+	}
 	if scanner.Next() {
 		t.Fatal("unexpected extra record")
 	}
@@ -193,18 +195,10 @@ func TestCompressedExactOpenRawOpensRangesOnDemand(t *testing.T) {
 	member2 := gzipMember(t, record[cut:])
 	stream := append(append([]byte{}, member1...), member2...)
 	source := &trackingRangeSource{data: stream}
-	ref := &RecordRef{
-		Location: RecordLocation{
-			Access: AccessExact,
-			Final:  true,
-			CompRanges: []Range{
-				{Off: 0, Size: int64(len(member1))},
-				{Off: int64(len(member1)), Size: int64(len(member2))},
-			},
-		},
-		source:      source,
-		compression: CompressionGzip,
-	}
+	ref := newResolvedTestRef(source, CompressionGzip, AccessExact, []Range{
+		{Off: 0, Size: int64(len(member1))},
+		{Off: int64(len(member1)), Size: int64(len(member2))},
+	}, Range{Off: 0, Size: int64(len(record))})
 
 	raw, err := ref.OpenRaw()
 	if err != nil {
@@ -250,15 +244,13 @@ func TestCompressedExactOpenRawOpensRangesOnDemand(t *testing.T) {
 func TestCompressedExactOpenRawClosesRangeOnDecoderError(t *testing.T) {
 	data := bytes.Repeat([]byte("not gzip data"), 128)
 	source := &trackingRangeSource{data: data}
-	ref := &RecordRef{
-		Location: RecordLocation{
-			Access:     AccessExact,
-			Final:      true,
-			CompRanges: []Range{{Off: 0, Size: int64(len(data))}},
-		},
-		source:      source,
-		compression: CompressionGzip,
-	}
+	ref := newResolvedTestRef(
+		source,
+		CompressionGzip,
+		AccessExact,
+		[]Range{{Off: 0, Size: int64(len(data))}},
+		Range{Off: 0, Size: int64(len(data))},
+	)
 
 	if _, err := ref.OpenRaw(); err == nil {
 		t.Fatal("expected gzip decoder error")

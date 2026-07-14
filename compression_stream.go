@@ -15,8 +15,8 @@ import (
 type compressionStream interface {
 	io.Reader
 	Compression() Compression
-	CompletedUnits() []CompressionUnit
-	CurrentUnit() *CompressionUnit
+	CompletedUnits() []compressionUnit
+	CurrentUnit() *compressionUnit
 	UncompOffset() int64
 	Sync() error
 }
@@ -35,7 +35,7 @@ func newCompressionStream(r io.Reader, compression Compression, maxBufferedZstdF
 			cr:          cr,
 			reader:      bzip2.NewReader(cr),
 			compression: CompressionBzip2,
-			kind:        CompressionUnitBzip2Stream,
+			kind:        compressionUnitBzip2Stream,
 		}, nil
 	case CompressionXZ:
 		xr, err := xz.ReaderConfig{SingleStream: true}.NewReader(cr)
@@ -46,7 +46,7 @@ func newCompressionStream(r io.Reader, compression Compression, maxBufferedZstdF
 			cr:          cr,
 			reader:      xr,
 			compression: CompressionXZ,
-			kind:        CompressionUnitXZStream,
+			kind:        compressionUnitXZStream,
 		}, nil
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedCompression, compression)
@@ -65,8 +65,8 @@ func (s *plainCompressionStream) Read(p []byte) (int, error) {
 }
 
 func (s *plainCompressionStream) Compression() Compression          { return CompressionPlain }
-func (s *plainCompressionStream) CompletedUnits() []CompressionUnit { return nil }
-func (s *plainCompressionStream) CurrentUnit() *CompressionUnit     { return nil }
+func (s *plainCompressionStream) CompletedUnits() []compressionUnit { return nil }
+func (s *plainCompressionStream) CurrentUnit() *compressionUnit     { return nil }
 func (s *plainCompressionStream) UncompOffset() int64               { return s.uncomp }
 func (s *plainCompressionStream) Sync() error                       { return nil }
 
@@ -74,9 +74,9 @@ type wholeCompressionStream struct {
 	cr          *countingReader
 	reader      io.Reader
 	compression Compression
-	kind        CompressionUnitKind
-	current     *CompressionUnit
-	completed   []CompressionUnit
+	kind        compressionUnitKind
+	current     *compressionUnit
+	completed   []compressionUnit
 	uncomp      int64
 	started     bool
 }
@@ -84,12 +84,11 @@ type wholeCompressionStream struct {
 func (s *wholeCompressionStream) Read(p []byte) (int, error) {
 	if !s.started {
 		s.started = true
-		s.current = &CompressionUnit{
-			Kind:                   s.kind,
-			Comp:                   Range{Off: 0, Size: -1},
-			Uncomp:                 Range{Off: s.uncomp, Size: 0},
-			ProducesWARCBytes:      true,
-			IndependentlyDecodable: false,
+		s.current = &compressionUnit{
+			Kind:              s.kind,
+			Comp:              Range{Off: 0, Size: -1},
+			Uncomp:            Range{Off: s.uncomp, Size: 0},
+			ProducesWARCBytes: true,
 		}
 	}
 	n, err := s.reader.Read(p)
@@ -113,16 +112,16 @@ func isXZUnexpectedData(err error) bool {
 }
 
 func (s *wholeCompressionStream) Compression() Compression          { return s.compression }
-func (s *wholeCompressionStream) CompletedUnits() []CompressionUnit { return s.completed }
-func (s *wholeCompressionStream) CurrentUnit() *CompressionUnit     { return s.current }
+func (s *wholeCompressionStream) CompletedUnits() []compressionUnit { return s.completed }
+func (s *wholeCompressionStream) CurrentUnit() *compressionUnit     { return s.current }
 func (s *wholeCompressionStream) UncompOffset() int64               { return s.uncomp }
 func (s *wholeCompressionStream) Sync() error                       { return nil }
 
 type gzipCompressionStream struct {
 	cr        *countingReader
 	gz        *gzip.Reader
-	current   *CompressionUnit
-	completed []CompressionUnit
+	current   *compressionUnit
+	completed []compressionUnit
 	uncomp    int64
 	eof       bool
 }
@@ -146,12 +145,11 @@ func (s *gzipCompressionStream) startMember() error {
 	}
 	gz.Multistream(false)
 	s.gz = gz
-	s.current = &CompressionUnit{
-		Kind:                   CompressionUnitGzipMember,
-		Comp:                   Range{Off: off, Size: -1},
-		Uncomp:                 Range{Off: s.uncomp, Size: 0},
-		ProducesWARCBytes:      true,
-		IndependentlyDecodable: true,
+	s.current = &compressionUnit{
+		Kind:              compressionUnitGzipMember,
+		Comp:              Range{Off: off, Size: -1},
+		Uncomp:            Range{Off: s.uncomp, Size: 0},
+		ProducesWARCBytes: true,
 	}
 	return nil
 }
@@ -197,8 +195,8 @@ func (s *gzipCompressionStream) Read(p []byte) (int, error) {
 }
 
 func (s *gzipCompressionStream) Compression() Compression          { return CompressionGzip }
-func (s *gzipCompressionStream) CompletedUnits() []CompressionUnit { return s.completed }
-func (s *gzipCompressionStream) CurrentUnit() *CompressionUnit     { return s.current }
+func (s *gzipCompressionStream) CompletedUnits() []compressionUnit { return s.completed }
+func (s *gzipCompressionStream) CurrentUnit() *compressionUnit     { return s.current }
 func (s *gzipCompressionStream) UncompOffset() int64               { return s.uncomp }
 func (s *gzipCompressionStream) Sync() error                       { return nil }
 func (s *gzipCompressionStream) PruneCompletedBefore(off int64) {
@@ -210,8 +208,8 @@ type zstdCompressionStream struct {
 	decoder              *zstd.Decoder
 	streamDecoder        *zstd.Decoder
 	streaming            bool
-	current              *CompressionUnit
-	completed            []CompressionUnit
+	current              *compressionUnit
+	completed            []compressionUnit
 	uncomp               int64
 	dicts                [][]byte
 	compressed           []byte
@@ -250,13 +248,11 @@ func (s *zstdCompressionStream) startFrame() error {
 			fr := newZstdFrameCompressedReader(s.cr, magic)
 			var meta zstdFrameMetadata
 			var headerSeen bool
-			current := &CompressionUnit{
-				Kind:                     CompressionUnitZstdFrame,
-				Comp:                     Range{Off: off, Size: -1},
-				Uncomp:                   Range{Off: s.uncomp, Size: 0},
-				ProducesWARCBytes:        true,
-				IndependentlyDecodable:   len(s.dicts) == 0,
-				RequiresPrefixDictionary: len(s.dicts) > 0,
+			current := &compressionUnit{
+				Kind:              compressionUnitZstdFrame,
+				Comp:              Range{Off: off, Size: -1},
+				Uncomp:            Range{Off: s.uncomp, Size: 0},
+				ProducesWARCBytes: true,
 			}
 			s.current = current
 			fr.onHeader = func(m zstdFrameMetadata) error {
@@ -313,11 +309,11 @@ func (s *zstdCompressionStream) startFrame() error {
 				return err
 			}
 			s.dicts = append(s.dicts, dict)
-			s.completed = append(s.completed, CompressionUnit{
-				Kind:                   CompressionUnitZstdDict,
-				Comp:                   Range{Off: off, Size: s.cr.Tell() - off},
-				ProducesWARCBytes:      false,
-				IndependentlyDecodable: false,
+			s.completed = append(s.completed, compressionUnit{
+				Kind:              compressionUnitZstdDict,
+				Comp:              Range{Off: off, Size: s.cr.Tell() - off},
+				Uncomp:            Range{Off: s.uncomp, Size: 0},
+				ProducesWARCBytes: false,
 			})
 			continue
 
@@ -329,11 +325,11 @@ func (s *zstdCompressionStream) startFrame() error {
 			if err := skipSkippablePayload(s.cr); err != nil {
 				return err
 			}
-			s.completed = append(s.completed, CompressionUnit{
-				Kind:                   CompressionUnitZstdSkippable,
-				Comp:                   Range{Off: off, Size: s.cr.Tell() - off},
-				ProducesWARCBytes:      false,
-				IndependentlyDecodable: false,
+			s.completed = append(s.completed, compressionUnit{
+				Kind:              compressionUnitZstdSkippable,
+				Comp:              Range{Off: off, Size: s.cr.Tell() - off},
+				Uncomp:            Range{Off: s.uncomp, Size: 0},
+				ProducesWARCBytes: false,
 			})
 			continue
 
@@ -453,8 +449,8 @@ func (s *zstdCompressionStream) decodeFrame(frame []byte) ([]byte, error) {
 }
 
 func (s *zstdCompressionStream) Compression() Compression          { return CompressionZstd }
-func (s *zstdCompressionStream) CompletedUnits() []CompressionUnit { return s.completed }
-func (s *zstdCompressionStream) CurrentUnit() *CompressionUnit     { return s.current }
+func (s *zstdCompressionStream) CompletedUnits() []compressionUnit { return s.completed }
+func (s *zstdCompressionStream) CurrentUnit() *compressionUnit     { return s.current }
 func (s *zstdCompressionStream) UncompOffset() int64               { return s.uncomp }
 func (s *zstdCompressionStream) PrefixDictionaries() [][]byte {
 	if len(s.dicts) == 0 {
@@ -537,13 +533,16 @@ func (s *zstdCompressionStream) PruneCompletedBefore(off int64) {
 }
 
 func newZstdDecoder(r io.Reader, dicts [][]byte) (*zstd.Decoder, error) {
-	opts := []zstd.DOption{
-		zstd.WithDecoderConcurrency(1),
+	return zstd.NewReader(r, zstdDecoderOptions(dicts)...)
+}
+
+func zstdDecoderOptions(dicts [][]byte) []zstd.DOption {
+	opts := make([]zstd.DOption, 0, 2)
+	opts = append(opts, zstd.WithDecoderConcurrency(1))
+	if len(dicts) > 0 {
+		opts = append(opts, zstd.WithDecoderDicts(dicts...))
 	}
-	for _, d := range dicts {
-		opts = append(opts, zstd.WithDecoderDicts(d))
-	}
-	return zstd.NewReader(r, opts...)
+	return opts
 }
 
 func readZstdFrameBuffered(dst []byte, r io.Reader, max int64, shouldFallback func() bool) ([]byte, bool, error) {
@@ -576,7 +575,7 @@ func strictZstdFrameRequirementError(meta zstdFrameMetadata) error {
 	}
 }
 
-func pruneCompletedUnits(units []CompressionUnit, off int64) []CompressionUnit {
+func pruneCompletedUnits(units []compressionUnit, off int64) []compressionUnit {
 	keep := 0
 	for keep < len(units) {
 		end := units[keep].Uncomp.End()

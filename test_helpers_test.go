@@ -12,6 +12,20 @@ func newBytesSource(data []byte) ReaderAtSource {
 	})
 }
 
+func newResolvedTestRef(source RandomAccessSource, compression Compression, access AccessMode, compressed []Range, decoded Range) *RecordRef {
+	ref := &RecordRef{
+		decode: newRecordDecodeContext(source, compression, nil),
+	}
+	ref.finalize(recordResolution{
+		location: RecordLocation{
+			Uncompressed: Range{Off: 0, Size: decoded.Size},
+			Access:       access,
+		},
+		raw: newDecodePlan(compressed, decoded),
+	})
+	return ref
+}
+
 func closeTest(tb testing.TB, closer io.Closer) {
 	tb.Helper()
 	if err := closer.Close(); err != nil {
@@ -58,15 +72,15 @@ func readAllFrom(t *testing.T, open func() (io.ReadCloser, error)) []byte {
 
 func assertExactRanges(t *testing.T, ref *RecordRef, ranges ...Range) {
 	t.Helper()
-	if ref.Location.Access != AccessExact {
-		t.Fatalf("access = %s, want %s: %+v", ref.Location.Access, AccessExact, ref.Location)
+	if ref.location.Access != AccessExact {
+		t.Fatalf("access = %s, want %s: %+v", ref.location.Access, AccessExact, ref.location)
 	}
-	if len(ref.Location.CompRanges) != len(ranges) {
-		t.Fatalf("compressed ranges = %+v, want %+v", ref.Location.CompRanges, ranges)
+	if len(ref.rawPlan.compressed) != len(ranges) {
+		t.Fatalf("compressed ranges = %+v, want %+v", ref.rawPlan.compressed, ranges)
 	}
 	for i, want := range ranges {
-		if ref.Location.CompRanges[i] != want {
-			t.Fatalf("compressed range %d = %+v, want %+v", i, ref.Location.CompRanges[i], want)
+		if ref.rawPlan.compressed[i] != want {
+			t.Fatalf("compressed range %d = %+v, want %+v", i, ref.rawPlan.compressed[i], want)
 		}
 	}
 }
@@ -99,7 +113,7 @@ func TestDetectCompressionFromName(t *testing.T) {
 }
 
 func hasIssue(ref *RecordRef, code IssueCode) bool {
-	for _, issue := range ref.Location.Issues {
+	for _, issue := range ref.issues {
 		if issue.Code == code {
 			return true
 		}

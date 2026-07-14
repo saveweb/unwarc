@@ -42,6 +42,7 @@ type Scanner struct {
 	rc     io.ReadCloser
 	stream compressionStream
 	opts   ScannerOptions
+	decode *recordDecodeContext
 
 	err error
 	ref *RecordRef
@@ -233,13 +234,7 @@ func (s *Scanner) readRecordStart() (*RecordRef, int64, error) {
 		RawHeader:     rawHeader,
 		ContentLength: contentLength,
 		HeaderLen:     int64(len(rawHeader)),
-		Location: RecordLocation{
-			Uncomp: Range{Off: start, Size: -1},
-			Access: AccessPending,
-		},
-		source:      s.source,
-		compression: s.stream.Compression(),
-		zstdDicts:   streamZstdDictionaries(s.stream),
+		decode:        s.recordDecodeContext(),
 	}, start, nil
 }
 
@@ -262,16 +257,16 @@ func (s *Scanner) finishRecord(ref *RecordRef, start int64) error {
 	if err := s.stream.Sync(); err != nil {
 		return err
 	}
-	loc := s.resolveLocation(Range{Off: start, Size: end - start})
-	loc.Issues = append(loc.Issues, issues...)
-	if err := s.strictIssueError(loc); err != nil {
+	resolution := s.resolveRecord(Range{Off: start, Size: end - start})
+	resolution.issues = append(resolution.issues, issues...)
+	if err := s.strictIssueError(resolution.issues); err != nil {
 		return err
 	}
 
 	ref.TrailerLen = int64(len(trailer))
-	ref.Location = loc
+	ref.finalize(resolution)
 	if pruner, ok := s.stream.(interface{ PruneCompletedBefore(int64) }); ok {
-		pruner.PruneCompletedBefore(loc.Uncomp.End())
+		pruner.PruneCompletedBefore(resolution.location.Uncompressed.End())
 	}
 	return nil
 }
@@ -383,11 +378,11 @@ func (r *RecordReader) fail(err error) {
 	r.scanner.err = err
 }
 
-func (s *Scanner) strictIssueError(loc RecordLocation) error {
+func (s *Scanner) strictIssueError(issues []Issue) error {
 	if !s.opts.Strict || s.stream.Compression() != CompressionZstd {
 		return nil
 	}
-	for _, issue := range loc.Issues {
+	for _, issue := range issues {
 		switch issue.Code {
 		case IssueFrameContainsMultipleRecords, IssueZstdFrameMissingContentSize, IssueZstdFrameMissingChecksum:
 			return fmt.Errorf("%w: %s", ErrInvalidWARCZstd, issue.Message)
@@ -402,6 +397,18 @@ func streamZstdDictionaries(stream compressionStream) [][]byte {
 		return nil
 	}
 	return zs.PrefixDictionaries()
+}
+
+func (s *Scanner) recordDecodeContext() *recordDecodeContext {
+	if s.decode != nil {
+		return s.decode
+	}
+	var zstdDicts [][]byte
+	if s.source != nil {
+		zstdDicts = streamZstdDictionaries(s.stream)
+	}
+	s.decode = newRecordDecodeContext(s.source, s.stream.Compression(), zstdDicts)
+	return s.decode
 }
 
 func readRecordHeader(r io.Reader, resynchronize bool) ([]byte, error) {

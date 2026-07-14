@@ -92,7 +92,7 @@ func BenchmarkRealSeekIndexVariants(b *testing.B) {
 					b.Fatal("no refs")
 				}
 				reportRealWARCStats(b, len(refs), recordBlockBytes(refs))
-				b.ReportMetric(float64(refs[len(refs)-1].Location.Uncomp.End()), "uncompressed_warc_bytes")
+				b.ReportMetric(float64(refs[len(refs)-1].location.Uncompressed.End()), "uncompressed_warc_bytes")
 			}
 		})
 	}
@@ -141,7 +141,7 @@ func BenchmarkRealSeekIndexHTTPBodyStartRanges(b *testing.B) {
 	if !ok {
 		b.Fatal("HTTP-split ref has no WARC-Record-ID")
 	}
-	bodyOff := splitRef.Location.BlockFrameMappings[1].Block.Off
+	bodyOff := splitRef.blockIndex.frames[1].Block.Off
 	const size = int64(16 << 10)
 
 	for _, tt := range []struct {
@@ -233,10 +233,10 @@ func largestBlockRef(refs []*RecordRef) *RecordRef {
 func largestBlockRefWithBodyFrame(refs []*RecordRef) *RecordRef {
 	var largest *RecordRef
 	for _, ref := range refs {
-		if ref == nil || len(ref.Location.BlockFrameMappings) < 2 {
+		if ref == nil || ref.blockIndex == nil || len(ref.blockIndex.frames) < 2 {
 			continue
 		}
-		bodyOff := ref.Location.BlockFrameMappings[1].Block.Off
+		bodyOff := ref.blockIndex.frames[1].Block.Off
 		if bodyOff <= 0 || bodyOff >= ref.ContentLength {
 			continue
 		}
@@ -279,7 +279,7 @@ func benchmarkOpenBlockRange(b *testing.B, ref *RecordRef, off, size int64) {
 		size = ref.ContentLength - off
 	}
 	b.SetBytes(size)
-	blockFrames := len(ref.Location.BlockFrameMappings)
+	blockFrames := len(ref.blockIndex.frames)
 	overlapFrames := overlappingBlockFrameCount(ref, off, size)
 	b.ResetTimer()
 	b.ReportMetric(float64(size), "range_bytes")
@@ -308,7 +308,7 @@ func benchmarkOpenBlockRange(b *testing.B, ref *RecordRef, off, size int64) {
 func overlappingBlockFrameCount(ref *RecordRef, off, size int64) int {
 	want := Range{Off: off, Size: size}
 	var n int
-	for _, frame := range ref.Location.BlockFrameMappings {
+	for _, frame := range ref.blockIndex.frames {
 		if rangesOverlap(frame.Block, want) {
 			n++
 		}
@@ -359,7 +359,6 @@ func writeRealSeekVariant(gzipPath, outPath string, blockChunkSize int64, httpSp
 	enc, err := zstd.NewWriter(nil,
 		zstd.WithEncoderCRC(true),
 		zstd.WithEncoderConcurrency(1),
-		zstd.WithSingleSegment(true),
 	)
 	if err != nil {
 		_ = out.Close()

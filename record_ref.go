@@ -24,14 +24,36 @@ type RecordRef struct {
 	// ContentLength is the record-block length declared by Content-Length.
 	ContentLength int64
 	// HeaderLen is the byte length of RawHeader in the uncompressed record.
-	HeaderLen  int64
+	HeaderLen int64
+	// TrailerLen is the number of trailer bytes consumed after the record block.
 	TrailerLen int64
 
-	Location RecordLocation
+	decode *recordDecodeContext
 
+	location   RecordLocation
+	rawPlan    *decodePlan
+	blockIndex *blockIndex
+	issues     []Issue
+	finalized  bool
+}
+
+// recordDecodeContext contains immutable input-level state shared by every
+// RecordRef produced from the same scanner or seek index.
+type recordDecodeContext struct {
 	source      RandomAccessSource
 	compression Compression
-	zstdDicts   [][]byte
+	zstdOptions []zstd.DOption
+}
+
+func newRecordDecodeContext(source RandomAccessSource, compression Compression, zstdDicts [][]byte) *recordDecodeContext {
+	context := &recordDecodeContext{
+		source:      source,
+		compression: compression,
+	}
+	if compression == CompressionZstd {
+		context.zstdOptions = zstdDecoderOptions(zstdDicts)
+	}
+	return context
 }
 
 // Finalized reports whether the record location is complete. References
@@ -39,54 +61,64 @@ type RecordRef struct {
 // exposed by RecordReader.Ref are finalized only after the record block reaches
 // EOF or the RecordReader is closed.
 func (r *RecordRef) Finalized() bool {
-	return r != nil && r.Location.Final
+	return r != nil && r.finalized
+}
+
+// Location returns the finalized record location. The second result is false
+// while a streaming RecordReader is still active.
+func (r *RecordRef) Location() (RecordLocation, bool) {
+	if !r.Finalized() {
+		return RecordLocation{}, false
+	}
+	return r.location, true
+}
+
+// Issues returns non-fatal diagnostics discovered while scanning the record.
+func (r *RecordRef) Issues() []Issue {
+	if !r.Finalized() {
+		return nil
+	}
+	return append([]Issue(nil), r.issues...)
+}
+
+// BlockIndex returns optional frame-level block mappings. The returned slice is
+// independent of the RecordRef and may be modified by the caller.
+func (r *RecordRef) BlockIndex() (BlockIndex, bool) {
+	if !r.Finalized() {
+		return BlockIndex{}, false
+	}
+	return r.blockIndex.snapshot()
+}
+
+func (r *RecordRef) finalize(resolution recordResolution) {
+	r.location = resolution.location
+	r.rawPlan = resolution.raw
+	r.blockIndex = resolution.block
+	r.issues = append(r.issues[:0], resolution.issues...)
+	r.finalized = true
 }
 
 // OpenRaw opens the complete uncompressed record bytes, including the WARC
 // record header, record block, and trailer.
 func (r *RecordRef) OpenRaw() (io.ReadCloser, error) {
-	if !r.Location.Final {
+	if !r.Finalized() {
 		return nil, ErrRecordLocationPending
 	}
-	if r.source == nil {
-		return nil, fmt.Errorf("record has no random access source")
-	}
-
-	switch r.Location.Access {
-	case AccessExact:
-		return r.openExactRaw()
-	case AccessFromCompressionUnitStart:
-		return r.openFromRestart()
-	case AccessFromFileStart:
-		return r.openFromFileStart()
-	default:
-		return nil, fmt.Errorf("record is not lazy-loadable: %s", r.Location.Access)
-	}
+	return r.openDecodePlan(r.rawPlan)
 }
 
 // OpenBlock opens the WARC record block declared by Content-Length.
 func (r *RecordRef) OpenBlock() (io.ReadCloser, error) {
-	if !r.Location.Final {
+	if !r.Finalized() {
 		return nil, ErrRecordLocationPending
 	}
 	if r.ContentLength == 0 {
 		return io.NopCloser(bytes.NewReader(nil)), nil
 	}
-	if len(r.Location.BlockDecodeRanges) > 0 {
-		return r.openExactBlock()
+	if plan, ok := r.blockIndex.plan(0, r.ContentLength); ok {
+		return r.openDecodePlan(plan)
 	}
-	raw, err := r.OpenRaw()
-	if err != nil {
-		return nil, err
-	}
-	if _, err := io.CopyN(io.Discard, raw, r.HeaderLen); err != nil {
-		_ = raw.Close()
-		return nil, err
-	}
-	return &readCloser{
-		Reader: io.LimitReader(raw, r.ContentLength),
-		close:  raw.Close,
-	}, nil
+	return r.openDecodePlan(r.rawPlan.subrange(r.HeaderLen, r.ContentLength))
 }
 
 // OpenBlockRange opens a byte range within the WARC record block.
@@ -97,7 +129,7 @@ func (r *RecordRef) OpenBlockRange(off, size int64) (io.ReadCloser, error) {
 	if off < 0 || size < 0 {
 		return nil, fmt.Errorf("invalid block range off=%d size=%d", off, size)
 	}
-	if !r.Location.Final {
+	if !r.Finalized() {
 		return nil, ErrRecordLocationPending
 	}
 	if off >= r.ContentLength || size == 0 {
@@ -107,86 +139,67 @@ func (r *RecordRef) OpenBlockRange(off, size int64) (io.ReadCloser, error) {
 		size = r.ContentLength - off
 	}
 
-	if len(r.Location.BlockFrameMappings) == 0 {
-		block, err := r.OpenBlock()
-		if err != nil {
-			return nil, err
-		}
-		if _, err := io.CopyN(io.Discard, block, off); err != nil {
-			_ = block.Close()
-			return nil, err
-		}
-		return &readCloser{
-			Reader: io.LimitReader(block, size),
-			close:  block.Close,
-		}, nil
+	if plan, ok := r.blockIndex.plan(off, size); ok {
+		return r.openDecodePlan(plan)
 	}
-	return r.openIndexedBlockRange(off, size)
+	return r.openDecodePlan(r.rawPlan.subrange(r.HeaderLen+off, size))
 }
 
-func (r *RecordRef) openExactBlock() (io.ReadCloser, error) {
-	raw, err := r.openBlockCompressedRanges(r.Location.BlockDecodeRanges)
-	if err != nil {
-		return nil, err
+func (r *RecordRef) openDecodePlan(plan *decodePlan) (io.ReadCloser, error) {
+	if plan == nil {
+		return nil, fmt.Errorf("record is not lazy-loadable: %s", r.location.Access)
 	}
-	return &readCloser{
-		Reader: io.LimitReader(raw, r.ContentLength),
-		close:  raw.Close,
-	}, nil
-}
-
-func (r *RecordRef) openIndexedBlockRange(off, size int64) (io.ReadCloser, error) {
-	want := Range{Off: off, Size: size}
-	var ranges []Range
-	var first *BlockFrameMapping
-	for i := range r.Location.BlockFrameMappings {
-		frame := r.Location.BlockFrameMappings[i]
-		if !rangesOverlap(frame.Block, want) {
-			continue
-		}
-		if first == nil {
-			first = &frame
-		}
-		ranges = append(ranges, frame.Comp)
-	}
-	if len(ranges) == 0 || first == nil {
-		return io.NopCloser(bytes.NewReader(nil)), nil
-	}
-
-	reader, err := r.openBlockCompressedRanges(ranges)
-	if err != nil {
-		return nil, err
-	}
-	skip := off - first.Block.Off
-	if skip > 0 {
-		if _, err := io.CopyN(io.Discard, reader, skip); err != nil {
-			_ = reader.Close()
-			return nil, err
-		}
-	}
-	return &readCloser{
-		Reader: io.LimitReader(reader, size),
-		close:  reader.Close,
-	}, nil
-}
-
-func (r *RecordRef) openBlockCompressedRanges(ranges []Range) (io.ReadCloser, error) {
-	if r.source == nil {
+	if r.decode == nil || r.decode.source == nil {
 		return nil, fmt.Errorf("record has no random access source")
 	}
-	if r.compression == CompressionBzip2 || r.compression == CompressionXZ {
-		return nil, fmt.Errorf("%w: %s", ErrCompressionUnitAccessNotImplemented, r.compression)
+	if !plan.decoded.Valid() {
+		return nil, fmt.Errorf("invalid decoded range: %+v", plan.decoded)
 	}
-	rc := &multiReadCloser{
-		source: r.source,
-		ranges: ranges,
-	}
-	raw, err := decodeCompressed(r.compression, rc, r.zstdDicts)
+
+	input, err := openCompressedRanges(r.decode.source, plan.compressed)
 	if err != nil {
-		_ = rc.Close()
 		return nil, err
 	}
-	return raw, nil
+	decoded, err := decodeCompressed(r.decode.compression, input, r.decode.zstdOptions)
+	if err != nil {
+		_ = input.Close()
+		return nil, err
+	}
+	if plan.decoded.Off > 0 {
+		if _, err := io.CopyN(io.Discard, decoded, plan.decoded.Off); err != nil {
+			_ = decoded.Close()
+			return nil, err
+		}
+	}
+	return &readCloser{
+		Reader: io.LimitReader(decoded, plan.decoded.Size),
+		close:  decoded.Close,
+	}, nil
+}
+
+func openCompressedRanges(source RandomAccessSource, ranges []Range) (io.ReadCloser, error) {
+	if len(ranges) == 0 {
+		return nil, fmt.Errorf("decode plan has no compressed ranges")
+	}
+	if len(ranges) == 1 {
+		rr := ranges[0]
+		if rr.Off < 0 {
+			return nil, fmt.Errorf("invalid compressed range: %+v", rr)
+		}
+		if rr.Size < 0 {
+			return source.OpenAt(rr.Off)
+		}
+		return source.OpenRange(rr.Off, rr.Size)
+	}
+	for _, rr := range ranges {
+		if !rr.Valid() {
+			return nil, fmt.Errorf("invalid compressed range: %+v", rr)
+		}
+	}
+	return &multiReadCloser{
+		source: source,
+		ranges: append([]Range(nil), ranges...),
+	}, nil
 }
 
 // Materialize reads the complete raw record into memory.
@@ -211,78 +224,7 @@ type Record struct {
 	Data []byte
 }
 
-func (r *RecordRef) openExactRaw() (io.ReadCloser, error) {
-	if r.compression == CompressionPlain {
-		if len(r.Location.CompRanges) != 1 {
-			return nil, fmt.Errorf("plain record has %d compressed ranges", len(r.Location.CompRanges))
-		}
-		rr := r.Location.CompRanges[0]
-		return r.source.OpenRange(rr.Off, rr.Size)
-	}
-	if r.compression == CompressionBzip2 || r.compression == CompressionXZ {
-		return nil, fmt.Errorf("%w: %s", ErrCompressionUnitAccessNotImplemented, r.compression)
-	}
-
-	ranges := &multiReadCloser{
-		source: r.source,
-		ranges: r.Location.CompRanges,
-	}
-	raw, err := decodeCompressed(r.compression, ranges, r.zstdDicts)
-	if err != nil {
-		_ = ranges.Close()
-		return nil, err
-	}
-	return raw, nil
-}
-
-func (r *RecordRef) openFromRestart() (io.ReadCloser, error) {
-	if r.Location.RestartRange == nil {
-		return nil, fmt.Errorf("record has no restart range")
-	}
-	rc, err := r.source.OpenAt(r.Location.RestartRange.Off)
-	if err != nil {
-		return nil, err
-	}
-	decoded, err := decodeCompressed(r.compression, rc, r.zstdDicts)
-	if err != nil {
-		_ = rc.Close()
-		return nil, err
-	}
-	// RestartRange.Off is in compressed-file coordinates, but Uncomp.Off is in
-	// global decoded-stream coordinates. RestartUncompOff bridges them so we can
-	// discard bytes decoded before this record begins.
-	skip := r.Location.Uncomp.Off - r.Location.RestartUncompOff
-	if _, err := io.CopyN(io.Discard, decoded, skip); err != nil {
-		_ = decoded.Close()
-		return nil, err
-	}
-	return &readCloser{
-		Reader: io.LimitReader(decoded, r.Location.Uncomp.Size),
-		close:  decoded.Close,
-	}, nil
-}
-
-func (r *RecordRef) openFromFileStart() (io.ReadCloser, error) {
-	rc, err := r.source.Open()
-	if err != nil {
-		return nil, err
-	}
-	decoded, err := decodeCompressed(r.compression, rc, r.zstdDicts)
-	if err != nil {
-		_ = rc.Close()
-		return nil, err
-	}
-	if _, err := io.CopyN(io.Discard, decoded, r.Location.Uncomp.Off); err != nil {
-		_ = decoded.Close()
-		return nil, err
-	}
-	return &readCloser{
-		Reader: io.LimitReader(decoded, r.Location.Uncomp.Size),
-		close:  decoded.Close,
-	}, nil
-}
-
-func decodeCompressed(compression Compression, rc io.ReadCloser, zstdDicts [][]byte) (io.ReadCloser, error) {
+func decodeCompressed(compression Compression, rc io.ReadCloser, zstdOptions []zstd.DOption) (io.ReadCloser, error) {
 	switch compression {
 	case CompressionPlain:
 		return rc, nil
@@ -303,11 +245,10 @@ func decodeCompressed(compression Compression, rc io.ReadCloser, zstdDicts [][]b
 			},
 		}, nil
 	case CompressionZstd:
-		opts := []zstd.DOption{zstd.WithDecoderConcurrency(1)}
-		for _, d := range zstdDicts {
-			opts = append(opts, zstd.WithDecoderDicts(d))
+		if len(zstdOptions) == 0 {
+			zstdOptions = zstdDecoderOptions(nil)
 		}
-		zr, err := zstd.NewReader(rc, opts...)
+		zr, err := zstd.NewReader(rc, zstdOptions...)
 		if err != nil {
 			return nil, err
 		}
@@ -382,11 +323,15 @@ func (m *multiReadCloser) Close() error {
 }
 
 // NewRecordFromBytes parses a single uncompressed WARC record from data.
-func NewRecordFromBytes(data []byte) (*Record, error) {
-	scanner, err := NewScanner(bytes.NewReader(data), ScannerOptions{Compression: CompressionPlain})
+func NewRecordFromBytes(data []byte) (_ *Record, err error) {
+	source := NewReaderAtSource(bytes.NewReader(data), int64(len(data)), nil)
+	scanner, err := NewScannerFromSource(source, ScannerOptions{Compression: CompressionPlain})
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		err = errors.Join(err, scanner.Close())
+	}()
 	if !scanner.Next() {
 		if scanner.Err() != nil {
 			return nil, scanner.Err()
@@ -394,7 +339,11 @@ func NewRecordFromBytes(data []byte) (*Record, error) {
 		return nil, io.EOF
 	}
 	ref := scanner.RecordRef()
-	rawSize := ref.Location.Uncomp.Size
+	location, ok := ref.Location()
+	if !ok {
+		return nil, ErrRecordLocationPending
+	}
+	rawSize := location.Uncompressed.Size
 	if rawSize < 0 || rawSize > int64(len(data)) {
 		return nil, fmt.Errorf("record range outside input")
 	}

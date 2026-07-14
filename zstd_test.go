@@ -62,11 +62,18 @@ func TestZstdSingleFrameMultipleRecordsLazyFromCompressionUnitStart(t *testing.T
 		t.Fatalf("expected 2 records, got %d", len(refs))
 	}
 	for i, ref := range refs {
-		if ref.Location.Access != AccessFromCompressionUnitStart {
-			t.Fatalf("record %d access = %s, want %s: %+v", i, ref.Location.Access, AccessFromCompressionUnitStart, ref.Location)
+		if ref.location.Access != AccessFromCompressionUnitStart {
+			t.Fatalf("record %d access = %s, want %s: %+v", i, ref.location.Access, AccessFromCompressionUnitStart, ref.location)
 		}
-		if ref.Location.RestartRange == nil || ref.Location.RestartRange.Off != 0 {
-			t.Fatalf("record %d restart range = %+v, want frame start", i, ref.Location.RestartRange)
+		if ref.rawPlan == nil || len(ref.rawPlan.compressed) != 1 || ref.rawPlan.compressed[0].Off != 0 {
+			t.Fatalf("record %d replay plan = %+v, want frame start", i, ref.rawPlan)
+		}
+		wantSkip := int64(0)
+		if i == 1 {
+			wantSkip = int64(len(record1))
+		}
+		if ref.rawPlan.decoded.Off != wantSkip {
+			t.Fatalf("record %d decoded skip = %d, want %d", i, ref.rawPlan.decoded.Off, wantSkip)
 		}
 		assertIssue(t, ref, IssueFrameContainsMultipleRecords)
 	}
@@ -134,6 +141,7 @@ func TestZstdDictionaryBackedSolidFrameLazyFromCompressionUnitStart(t *testing.T
 	dict := zstdDictionary(t)
 	block1 := []byte("dictionary-backed block one dictionary-backed block one")
 	block2 := []byte("dictionary-backed block two dictionary-backed block two")
+	wantBlocks := [][]byte{block1, block2}
 	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-dict-solid-1>", block1)
 	record2 := makeRecord("response", "<urn:uuid:zstd-dict-solid-2>", block2)
 	dictFrame := zstdSkippableFrame(zstdDictFrameMagic, dict)
@@ -144,12 +152,41 @@ func TestZstdDictionaryBackedSolidFrameLazyFromCompressionUnitStart(t *testing.T
 	if len(refs) != 2 {
 		t.Fatalf("expected 2 dictionary-backed solid-frame records, got %d", len(refs))
 	}
+	if refs[0].decode == nil || refs[0].decode != refs[1].decode {
+		t.Fatal("dictionary-backed records do not share one decode context")
+	}
+	type openResult struct {
+		record int
+		block  []byte
+		err    error
+	}
+	results := make(chan openResult, len(refs))
 	for i, ref := range refs {
-		if ref.Location.Access != AccessFromCompressionUnitStart {
-			t.Fatalf("record %d access = %s, want %s: %+v", i, ref.Location.Access, AccessFromCompressionUnitStart, ref.Location)
+		go func() {
+			rc, err := ref.OpenBlock()
+			if err != nil {
+				results <- openResult{record: i, err: err}
+				return
+			}
+			block, readErr := io.ReadAll(rc)
+			results <- openResult{record: i, block: block, err: errors.Join(readErr, rc.Close())}
+		}()
+	}
+	for range refs {
+		result := <-results
+		if result.err != nil {
+			t.Fatalf("concurrent OpenBlock(%d): %v", result.record, result.err)
 		}
-		if ref.Location.RestartRange == nil || ref.Location.RestartRange.Off != int64(len(dictFrame)) {
-			t.Fatalf("record %d restart range = %+v, want data frame start", i, ref.Location.RestartRange)
+		if want := wantBlocks[result.record]; !bytes.Equal(result.block, want) {
+			t.Fatalf("concurrent block %d = %q, want %q", result.record, result.block, want)
+		}
+	}
+	for i, ref := range refs {
+		if ref.location.Access != AccessFromCompressionUnitStart {
+			t.Fatalf("record %d access = %s, want %s: %+v", i, ref.location.Access, AccessFromCompressionUnitStart, ref.location)
+		}
+		if ref.rawPlan == nil || len(ref.rawPlan.compressed) != 1 || ref.rawPlan.compressed[0].Off != int64(len(dictFrame)) {
+			t.Fatalf("record %d replay plan = %+v, want data frame start", i, ref.rawPlan)
 		}
 		assertIssue(t, ref, IssueFrameContainsMultipleRecords)
 	}
@@ -379,7 +416,7 @@ func TestZstdStrictRequiresFrameContentSizeAndChecksum(t *testing.T) {
 				t.Fatalf("expected 1 record, got %d", len(refs))
 			}
 			if !hasIssue(refs[0], tt.wantIssue) {
-				t.Fatalf("missing issue %v in %+v", tt.wantIssue, refs[0].Location.Issues)
+				t.Fatalf("missing issue %v in %+v", tt.wantIssue, refs[0].issues)
 			}
 			assertZstdOpenBlock(t, refs[0], block)
 		})

@@ -41,11 +41,11 @@ func TestScannerPlainOffsetsAndLazyBlock(t *testing.T) {
 	if len(refs) != 2 {
 		t.Fatalf("expected 2 records, got %d", len(refs))
 	}
-	if refs[0].Location.Access != AccessExact || refs[0].Location.CompRanges[0].Off != 0 {
-		t.Fatalf("unexpected first location: %+v", refs[0].Location)
+	if refs[0].location.Access != AccessExact || refs[0].rawPlan.compressed[0].Off != 0 {
+		t.Fatalf("unexpected first location: %+v", refs[0].location)
 	}
-	if refs[1].Location.Access != AccessExact || refs[1].Location.CompRanges[0].Off != int64(len(records[0])) {
-		t.Fatalf("unexpected second location: %+v", refs[1].Location)
+	if refs[1].location.Access != AccessExact || refs[1].rawPlan.compressed[0].Off != int64(len(records[0])) {
+		t.Fatalf("unexpected second location: %+v", refs[1].location)
 	}
 
 	block, err := refs[1].OpenBlock()
@@ -130,8 +130,8 @@ func TestScannerResynchronizesAcrossExtraCRLF(t *testing.T) {
 		t.Fatalf("first record: %v", scanner.Err())
 	}
 	firstRef := scanner.RecordRef()
-	if firstRef.Location.Uncomp.Off != 2 {
-		t.Fatalf("first offset = %d, want 2", firstRef.Location.Uncomp.Off)
+	if firstRef.location.Uncompressed.Off != 2 {
+		t.Fatalf("first offset = %d, want 2", firstRef.location.Uncompressed.Off)
 	}
 
 	if !scanner.Next() {
@@ -139,8 +139,8 @@ func TestScannerResynchronizesAcrossExtraCRLF(t *testing.T) {
 	}
 	secondRef := scanner.RecordRef()
 	wantSecondOff := int64(2 + len(first) + 4)
-	if secondRef.Location.Uncomp.Off != wantSecondOff {
-		t.Fatalf("second offset = %d, want %d", secondRef.Location.Uncomp.Off, wantSecondOff)
+	if secondRef.location.Uncompressed.Off != wantSecondOff {
+		t.Fatalf("second offset = %d, want %d", secondRef.location.Uncompressed.Off, wantSecondOff)
 	}
 	if got := readAllFrom(t, secondRef.OpenRaw); !bytes.Equal(got, second) {
 		t.Fatalf("second raw record = %q, want %q", got, second)
@@ -194,8 +194,8 @@ func TestScannerNextRecordStreamsBlock(t *testing.T) {
 	if string(got) != "ABC" {
 		t.Fatalf("first block = %q", got)
 	}
-	if ref.TrailerLen != 4 || ref.Location.Uncomp.Size != int64(len(records[0])) {
-		t.Fatalf("first ref was not finalized after block read: %+v trailer=%d", ref.Location, ref.TrailerLen)
+	if ref.TrailerLen != 4 || ref.location.Uncompressed.Size != int64(len(records[0])) {
+		t.Fatalf("first ref was not finalized after block read: %+v trailer=%d", ref.location, ref.TrailerLen)
 	}
 
 	record, err = scanner.NextRecord()
@@ -210,8 +210,8 @@ func TestScannerNextRecordStreamsBlock(t *testing.T) {
 	if string(got) != "DEFG" {
 		t.Fatalf("second block = %q", got)
 	}
-	if ref.TrailerLen != 4 || ref.Location.Uncomp.Size != int64(len(records[1])) {
-		t.Fatalf("second ref was not finalized after block read: %+v trailer=%d", ref.Location, ref.TrailerLen)
+	if ref.TrailerLen != 4 || ref.location.Uncompressed.Size != int64(len(records[1])) {
+		t.Fatalf("second ref was not finalized after block read: %+v trailer=%d", ref.location, ref.TrailerLen)
 	}
 
 	_, err = scanner.NextRecord()
@@ -236,7 +236,16 @@ func TestScannerNextRecordPendingLocationRejectsLazyOpen(t *testing.T) {
 	}
 	ref := recordReader.Ref()
 	if ref.Finalized() {
-		t.Fatalf("ref was finalized before block was consumed: %+v", ref.Location)
+		t.Fatalf("ref was finalized before block was consumed: %+v", ref.location)
+	}
+	if _, ok := ref.Location(); ok {
+		t.Fatal("Location succeeded before record finalization")
+	}
+	if issues := ref.Issues(); issues != nil {
+		t.Fatalf("Issues before finalization = %+v, want nil", issues)
+	}
+	if _, ok := ref.BlockIndex(); ok {
+		t.Fatal("BlockIndex succeeded before record finalization")
 	}
 	if got := scanner.RecordRef(); got != nil {
 		t.Fatalf("scanner.RecordRef before finalization = %+v, want nil", got)
@@ -255,7 +264,10 @@ func TestScannerNextRecordPendingLocationRejectsLazyOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !ref.Finalized() {
-		t.Fatalf("ref was not finalized after block read: %+v", ref.Location)
+		t.Fatalf("ref was not finalized after block read: %+v", ref.location)
+	}
+	if location, ok := ref.Location(); !ok || location != ref.location {
+		t.Fatalf("Location after finalization = %+v, %t; want %+v", location, ok, ref.location)
 	}
 	if got := scanner.RecordRef(); got != ref {
 		t.Fatalf("scanner.RecordRef after finalization = %+v, want returned ref", got)
@@ -284,10 +296,10 @@ func TestScannerCloseFinalizesActiveRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !ref.Finalized() {
-		t.Fatalf("ref was not finalized by Scanner.Close: %+v", ref.Location)
+		t.Fatalf("ref was not finalized by Scanner.Close: %+v", ref.location)
 	}
-	if ref.Location.Uncomp.Size != int64(len(recordBytes)) {
-		t.Fatalf("record size = %d, want %d", ref.Location.Uncomp.Size, len(recordBytes))
+	if ref.location.Uncompressed.Size != int64(len(recordBytes)) {
+		t.Fatalf("record size = %d, want %d", ref.location.Uncompressed.Size, len(recordBytes))
 	}
 }
 
@@ -311,8 +323,8 @@ func TestScannerNextRecordClosesPreviousRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	ref2 := record2.Ref()
-	if ref1.TrailerLen != 4 || ref1.Location.Uncomp.Size != int64(len(records[0])) {
-		t.Fatalf("first ref was not finalized when advancing: %+v trailer=%d", ref1.Location, ref1.TrailerLen)
+	if ref1.TrailerLen != 4 || ref1.location.Uncompressed.Size != int64(len(records[0])) {
+		t.Fatalf("first ref was not finalized when advancing: %+v trailer=%d", ref1.location, ref1.TrailerLen)
 	}
 	got, err := io.ReadAll(record2.Block())
 	if err != nil {
@@ -322,7 +334,7 @@ func TestScannerNextRecordClosesPreviousRecord(t *testing.T) {
 		t.Fatalf("second block = %q", got)
 	}
 	if ref2.TrailerLen != 4 {
-		t.Fatalf("second ref was not finalized after block read: %+v trailer=%d", ref2.Location, ref2.TrailerLen)
+		t.Fatalf("second ref was not finalized after block read: %+v trailer=%d", ref2.location, ref2.TrailerLen)
 	}
 	if err := scanner.Err(); err != nil {
 		t.Fatal(err)
@@ -369,7 +381,7 @@ func TestScannerGzipMemberPerRecord(t *testing.T) {
 	firstLen := compressed.Len()
 	compressed.Write(gzipMember(t, rec2))
 
-	scanner, err := NewScanner(bytes.NewReader(compressed.Bytes()), ScannerOptions{Compression: CompressionGzip})
+	scanner, err := NewScannerFromSource(newBytesSource(compressed.Bytes()), ScannerOptions{Compression: CompressionGzip})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -377,15 +389,15 @@ func TestScannerGzipMemberPerRecord(t *testing.T) {
 		t.Fatalf("first record: %v", scanner.Err())
 	}
 	ref1 := scanner.RecordRef()
-	if ref1.Location.Access != AccessExact || ref1.Location.CompRanges[0].Off != 0 {
-		t.Fatalf("unexpected first gzip location: %+v", ref1.Location)
+	if ref1.location.Access != AccessExact || ref1.rawPlan.compressed[0].Off != 0 {
+		t.Fatalf("unexpected first gzip location: %+v", ref1.location)
 	}
 	if !scanner.Next() {
 		t.Fatalf("second record: %v", scanner.Err())
 	}
 	ref2 := scanner.RecordRef()
-	if ref2.Location.Access != AccessExact || ref2.Location.CompRanges[0].Off != int64(firstLen) {
-		t.Fatalf("unexpected second gzip location: %+v", ref2.Location)
+	if ref2.location.Access != AccessExact || ref2.rawPlan.compressed[0].Off != int64(firstLen) {
+		t.Fatalf("unexpected second gzip location: %+v", ref2.location)
 	}
 }
 
@@ -400,7 +412,7 @@ func TestScannerZstdRecordSpansMultipleFrames(t *testing.T) {
 	frame2 := zstdFrame(t, record[cut:])
 	stream := append(append([]byte{}, frame1...), frame2...)
 
-	scanner, err := NewScanner(bytes.NewReader(stream), ScannerOptions{Compression: CompressionZstd})
+	scanner, err := NewScannerFromSource(newBytesSource(stream), ScannerOptions{Compression: CompressionZstd})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -408,14 +420,14 @@ func TestScannerZstdRecordSpansMultipleFrames(t *testing.T) {
 		t.Fatalf("record: %v", scanner.Err())
 	}
 	ref := scanner.RecordRef()
-	if ref.Location.Access != AccessExact {
-		t.Fatalf("expected exact access, got %+v", ref.Location)
+	if ref.location.Access != AccessExact {
+		t.Fatalf("expected exact access, got %+v", ref.location)
 	}
-	if len(ref.Location.CompRanges) != 2 {
-		t.Fatalf("expected 2 zstd frame ranges, got %+v", ref.Location.CompRanges)
+	if len(ref.rawPlan.compressed) != 2 {
+		t.Fatalf("expected 2 zstd frame ranges, got %+v", ref.rawPlan.compressed)
 	}
-	if ref.Location.CompRanges[0].Size != int64(len(frame1)) || ref.Location.CompRanges[1].Size != int64(len(frame2)) {
-		t.Fatalf("unexpected compressed ranges: %+v", ref.Location.CompRanges)
+	if ref.rawPlan.compressed[0].Size != int64(len(frame1)) || ref.rawPlan.compressed[1].Size != int64(len(frame2)) {
+		t.Fatalf("unexpected compressed ranges: %+v", ref.rawPlan.compressed)
 	}
 	if scanner.Next() {
 		t.Fatalf("unexpected extra record")
@@ -438,8 +450,8 @@ func TestScannerZstdFrameContainsMultipleRecords(t *testing.T) {
 		t.Fatalf("first record: %v", scanner.Err())
 	}
 	ref1 := scanner.RecordRef()
-	if ref1.Location.Access != AccessStreamOnly {
-		t.Fatalf("expected stream-only for non-source solid zstd, got %+v", ref1.Location)
+	if ref1.location.Access != AccessStreamOnly {
+		t.Fatalf("expected stream-only for non-source solid zstd, got %+v", ref1.location)
 	}
 	assertIssue(t, ref1, IssueFrameContainsMultipleRecords)
 
@@ -447,8 +459,8 @@ func TestScannerZstdFrameContainsMultipleRecords(t *testing.T) {
 		t.Fatalf("second record: %v", scanner.Err())
 	}
 	ref2 := scanner.RecordRef()
-	if ref2.Location.Access != AccessStreamOnly {
-		t.Fatalf("expected stream-only for second solid zstd record, got %+v", ref2.Location)
+	if ref2.location.Access != AccessStreamOnly {
+		t.Fatalf("expected stream-only for second solid zstd record, got %+v", ref2.location)
 	}
 	assertIssue(t, ref2, IssueFrameContainsMultipleRecords)
 }
@@ -495,8 +507,8 @@ func TestScannerZeroContentLengthIsValid(t *testing.T) {
 	if ref.ContentLength != 0 {
 		t.Fatalf("expected Content-Length 0, got %d", ref.ContentLength)
 	}
-	if ref.Location.Access != AccessExact {
-		t.Fatalf("expected exact access, got %+v", ref.Location)
+	if ref.location.Access != AccessStreamOnly {
+		t.Fatalf("expected stream-only access, got %+v", ref.location)
 	}
 	if scanner.Next() {
 		t.Fatal("unexpected extra record")
@@ -637,5 +649,5 @@ func assertIssue(t *testing.T, ref *RecordRef, code IssueCode) {
 	if hasIssue(ref, code) {
 		return
 	}
-	t.Fatalf("missing issue %v in %+v", code, ref.Location.Issues)
+	t.Fatalf("missing issue %v in %+v", code, ref.issues)
 }

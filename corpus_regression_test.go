@@ -311,8 +311,8 @@ func assertLazyReadable(t *testing.T, refs []*RecordRef, limit int) {
 	}
 	for i, ref := range refs[:limit] {
 		raw := readAllFrom(t, ref.OpenRaw)
-		if int64(len(raw)) != ref.Location.Uncomp.Size {
-			t.Fatalf("record %d raw bytes = %d, want %d", i, len(raw), ref.Location.Uncomp.Size)
+		if int64(len(raw)) != ref.location.Uncompressed.Size {
+			t.Fatalf("record %d raw bytes = %d, want %d", i, len(raw), ref.location.Uncompressed.Size)
 		}
 		block := readAllFrom(t, ref.OpenBlock)
 		if int64(len(block)) != ref.ContentLength {
@@ -346,7 +346,7 @@ func assertLazyPrefixReadable(t *testing.T, ref *RecordRef) {
 func countAccessModes(refs []*RecordRef) map[AccessMode]int {
 	counts := make(map[AccessMode]int)
 	for _, ref := range refs {
-		counts[ref.Location.Access]++
+		counts[ref.location.Access]++
 	}
 	return counts
 }
@@ -354,7 +354,7 @@ func countAccessModes(refs []*RecordRef) map[AccessMode]int {
 func countIssueCodes(refs []*RecordRef) map[IssueCode]int {
 	counts := make(map[IssueCode]int)
 	for _, ref := range refs {
-		for _, issue := range ref.Location.Issues {
+		for _, issue := range ref.issues {
 			counts[issue.Code]++
 		}
 	}
