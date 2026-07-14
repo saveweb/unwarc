@@ -1,4 +1,5 @@
 GO := env -u GOROOT go
+CORPUS_BENCH_FLAGS := -run '^$$' -bench '^BenchmarkCorpusWARC' -benchmem -benchtime=500ms -count=7 -cpu=1
 
 .PHONY: verify fmt-check test test-native test-native-gzip test-native-zstd test-native-all bench-corpus bench-corpus-native bench-corpus-all race vet build lint fuzz-smoke
 
@@ -22,10 +23,10 @@ test-native-all:
 	$(GO) test -tags='unwarc_libz unwarc_libzstd' -count=1 ./...
 
 bench-corpus:
-	$(GO) test -run '^$$' -bench '^BenchmarkCorpusWARC' -benchmem .
+	$(GO) test $(CORPUS_BENCH_FLAGS) .
 
 bench-corpus-native:
-	$(GO) test -tags='unwarc_libz unwarc_libzstd' -run '^$$' -bench '^BenchmarkCorpusWARC' -benchmem .
+	$(GO) test -tags='unwarc_libz unwarc_libzstd' $(CORPUS_BENCH_FLAGS) .
 
 bench-corpus-all: bench-corpus bench-corpus-native
 

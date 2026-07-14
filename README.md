@@ -539,11 +539,13 @@ The `Benchmark` GitHub Actions workflow runs the same corpus benchmark on pull
 requests, pushes to `main`, and manual dispatch. Pure Go benchmarks run on
 Linux, macOS, and Windows. Native gzip/zstd benchmarks run on Linux and macOS,
 where zlib and libzstd are installed from apt or Homebrew; Windows currently
-tracks the pure Go backend only. Pushes to `main` publish benchmark history to
-the `gh-pages` branch under `dev/bench/*`; benchmark collection runs in
-parallel, while the short history-publishing step is serialized to avoid
-concurrent `gh-pages` pushes. Pull requests leave job summaries without
-updating history.
+tracks the pure Go backend only. Corpus benchmarks run with a fixed
+`-cpu=1`, seven samples, and a shorter per-sample benchtime to reduce hosted
+runner scheduling noise. Pushes to `main` publish benchmark history to the
+`gh-pages` branch under `dev/bench/v2/*` without alert comments; benchmark
+collection runs in parallel, while the short history-publishing step is
+serialized to avoid concurrent `gh-pages` pushes. Pull requests compare against
+the stored history and leave job summaries without updating history.
 
 This repository serves the benchmark dashboard from the `gh-pages` branch. For
 a fork or a fresh repository, initialize that branch once and configure GitHub

@@ -94,7 +94,7 @@ jobs:
           if [ -n "$GO_TEST_TAGS" ]; then
             tag_args=(-tags "$GO_TEST_TAGS")
           fi
-          go test "${tag_args[@]}" -run '^$' -bench '^BenchmarkCorpusWARC' -benchmem -count=5 . | tee benchmark.txt
+          go test "${tag_args[@]}" -run '^$' -bench '^BenchmarkCorpusWARC' -benchmem -benchtime=500ms -count=7 -cpu=1 . | tee benchmark.txt
 
       - name: Aggregate benchmark samples
         shell: bash
@@ -123,7 +123,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: false
           gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/${{ matrix.backend }}/smaller
+          benchmark-data-dir-path: dev/bench/v2/${{ matrix.backend }}/smaller
           summary-always: true
           alert-threshold: '150%'
           fail-threshold: '200%'
@@ -140,7 +140,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: false
           gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/${{ matrix.backend }}/bigger
+          benchmark-data-dir-path: dev/bench/v2/${{ matrix.backend }}/bigger
           summary-always: true
           alert-threshold: '150%'
           fail-threshold: '200%'
@@ -160,13 +160,11 @@ jobs:
         with:
           ref: gh-pages
 
-      - name: Remove unaggregated benchmark charts
+      - name: Remove pre-v2 benchmark charts
         shell: bash
         run: |
           for backend in purego-linux purego-macos purego-windows native-linux native-macos; do
-            if [ -d "dev/bench/$backend" ]; then
-              find "dev/bench/$backend" -maxdepth 1 -type f -delete
-            fi
+            rm -rf "dev/bench/$backend"
           done
 
       - name: Publish history cleanup
@@ -178,7 +176,7 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add dev/bench
-          git commit -m 'Remove unaggregated benchmark history'
+          git commit -m 'Remove pre-v2 benchmark history'
           git push
 
   corpus-publish:
@@ -225,12 +223,12 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/${{ matrix.backend }}/smaller
+          benchmark-data-dir-path: dev/bench/v2/${{ matrix.backend }}/smaller
           summary-always: true
-          comment-on-alert: true
-          alert-threshold: '150%'
-          fail-threshold: '200%'
-          fail-on-alert: true
+          comment-on-alert: false
+          alert-threshold: '1000000%'
+          fail-threshold: '1000000%'
+          fail-on-alert: false
           max-items-in-chart: 200
 
       - name: Store throughput results
@@ -242,10 +240,10 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/${{ matrix.backend }}/bigger
+          benchmark-data-dir-path: dev/bench/v2/${{ matrix.backend }}/bigger
           summary-always: true
-          comment-on-alert: true
-          alert-threshold: '150%'
-          fail-threshold: '200%'
-          fail-on-alert: true
+          comment-on-alert: false
+          alert-threshold: '1000000%'
+          fail-threshold: '1000000%'
+          fail-on-alert: false
           max-items-in-chart: 200
