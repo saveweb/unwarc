@@ -14,9 +14,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  corpus-pr:
+  corpus:
     name: Corpus benchmark
-    if: github.event_name != 'push' || github.ref != 'refs/heads/main'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -121,6 +120,7 @@ jobs:
           path: benchmark.txt
 
       - name: Compare benchmark result
+        if: github.event_name != 'push' || github.ref != 'refs/heads/main'
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: ${{ matrix.benchmark-name }}
@@ -137,44 +137,27 @@ jobs:
           max-items-in-chart: 200
 
   corpus-publish:
-    name: Corpus benchmark and publish history
+    name: Publish benchmark history
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ${{ matrix.os }}
+    needs: corpus
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
         include:
-          - os: ubuntu-latest
-            backend: purego-linux
+          - backend: purego-linux
             benchmark-name: unwarc corpus benchmark purego linux
-            go-test-tags: ''
-            native: false
-          - os: macos-latest
-            backend: purego-macos
+          - backend: purego-macos
             benchmark-name: unwarc corpus benchmark purego macos
-            go-test-tags: ''
-            native: false
-          - os: windows-latest
-            backend: purego-windows
+          - backend: purego-windows
             benchmark-name: unwarc corpus benchmark purego windows
-            go-test-tags: ''
-            native: false
-          - os: ubuntu-latest
-            backend: native-linux
+          - backend: native-linux
             benchmark-name: unwarc corpus benchmark native linux
-            go-test-tags: unwarc_libz unwarc_libzstd
-            native: true
-          - os: macos-latest
-            backend: native-macos
+          - backend: native-macos
             benchmark-name: unwarc corpus benchmark native macos
-            go-test-tags: unwarc_libz unwarc_libzstd
-            native: true
-          - os: windows-latest
-            backend: native-windows
+          - backend: native-windows
             benchmark-name: unwarc corpus benchmark native windows
-            go-test-tags: unwarc_libz unwarc_libzstd
-            native: true
     permissions:
       contents: write
       deployments: write
@@ -182,74 +165,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Set up MSYS2 native libraries
-        if: matrix.native && runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          path-type: inherit
-          install: >-
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-pkgconf
-            mingw-w64-ucrt-x86_64-zlib
-            mingw-w64-ucrt-x86_64-zstd
-
-      - name: Install Linux native libraries
-        if: matrix.native && runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config zlib1g-dev libzstd-dev
-
-      - name: Install macOS native libraries
-        if: matrix.native && runner.os == 'macOS'
-        run: |
-          brew install pkg-config zlib zstd
-          {
-            echo "PKG_CONFIG_PATH=$(brew --prefix zlib)/lib/pkgconfig:$(brew --prefix zstd)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-          } >> "$GITHUB_ENV"
-
-      - name: Run tests
-        shell: bash
-        env:
-          GO_TEST_TAGS: ${{ matrix.go-test-tags }}
-        run: |
-          set -o pipefail
-          tag_args=()
-          if [ -n "$GO_TEST_TAGS" ]; then
-            tag_args=(-tags "$GO_TEST_TAGS")
-          fi
-          go test "${tag_args[@]}" -count=1 ./...
-
-      - name: Run corpus benchmark
-        shell: bash
-        env:
-          GO_TEST_TAGS: ${{ matrix.go-test-tags }}
-        run: |
-          set -o pipefail
-          tag_args=()
-          if [ -n "$GO_TEST_TAGS" ]; then
-            tag_args=(-tags "$GO_TEST_TAGS")
-          fi
-          go test "${tag_args[@]}" -run '^$' -bench '^BenchmarkCorpusWARC' -benchmem -count=5 . | tee benchmark.txt
-
-      - name: Upload raw benchmark output
-        uses: actions/upload-artifact@v4
+      - name: Download benchmark output
+        uses: actions/download-artifact@v4
         with:
           name: corpus-benchmark-output-${{ matrix.backend }}
-          path: benchmark.txt
+          path: benchmark-output
 
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: ${{ matrix.benchmark-name }}
           tool: go
-          output-file-path: benchmark.txt
+          output-file-path: benchmark-output/benchmark.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           gh-pages-branch: gh-pages

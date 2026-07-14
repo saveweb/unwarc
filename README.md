@@ -522,8 +522,9 @@ requests, pushes to `main`, and manual dispatch. Both pure Go and native
 gzip/zstd benchmarks run on Linux, macOS, and Windows. Linux installs zlib and
 libzstd from apt, macOS installs them with Homebrew, and Windows uses MSYS2
 UCRT64 packages. Pushes to `main` publish benchmark history to the `gh-pages`
-branch under `dev/bench/*`; pull requests leave job summaries without updating
-history.
+branch under `dev/bench/*`; benchmark collection runs in parallel, while the
+short history-publishing step is serialized to avoid concurrent `gh-pages`
+pushes. Pull requests leave job summaries without updating history.
 
 This repository serves the benchmark dashboard from the `gh-pages` branch. For
 a fork or a fresh repository, initialize that branch once and configure GitHub
