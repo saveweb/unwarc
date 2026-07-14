@@ -201,7 +201,7 @@ type zstdCompressionStream struct {
 	requirements         zstdFrameRequirements
 	sawFrame             bool
 	sawDict              bool
-	sawExtension         bool
+	sawGenericSkippable  bool
 }
 
 func newZstdCompressionStream(cr *countingReader, maxBufferedFrameSize int64, requirements zstdFrameRequirements) (*zstdCompressionStream, error) {
@@ -271,7 +271,7 @@ func (s *zstdCompressionStream) startFrame() error {
 			return nil
 
 		case magic == zstdDictFrameMagic:
-			if off != 0 || s.sawDict || s.sawFrame || s.sawExtension {
+			if off != 0 || s.sawDict || s.sawFrame || s.sawGenericSkippable {
 				return fmt.Errorf("zstd dictionary frame magic at invalid offset %d", off)
 			}
 			s.sawDict = true
@@ -294,9 +294,9 @@ func (s *zstdCompressionStream) startFrame() error {
 
 		case isZstdSkippableMagic(magic):
 			if off == 0 {
-				return fmt.Errorf("zstd extension frame magic cannot start a WARC-zstd file")
+				return fmt.Errorf("generic zstd skippable frame cannot start a WARC-zstd file")
 			}
-			s.sawExtension = true
+			s.sawGenericSkippable = true
 			if err := skipSkippablePayload(s.cr); err != nil {
 				return err
 			}

@@ -548,11 +548,11 @@ func TestDetectZstdWarcMagics(t *testing.T) {
 		t.Fatalf("zstd dictionary magic detected as %s", got)
 	}
 	if got := detectCompressionFromPrefix([]byte{0x50, 0x2A, 0x4D, 0x18}); got != CompressionPlain {
-		t.Fatalf("zstd extension magic must not start a WARC-zstd file, detected as %s", got)
+		t.Fatalf("generic zstd skippable magic must not start a WARC-zstd file, detected as %s", got)
 	}
 }
 
-func TestScannerRejectsInitialZstdExtensionFrame(t *testing.T) {
+func TestScannerRejectsInitialGenericZstdSkippableFrame(t *testing.T) {
 	stream := zstdSkippableFrame(0x184D2A50, []byte("extension"))
 
 	scanner, err := NewScanner(bytes.NewReader(stream), ScannerOptions{Compression: CompressionZstd})
@@ -563,7 +563,7 @@ func TestScannerRejectsInitialZstdExtensionFrame(t *testing.T) {
 		t.Fatal("unexpected record")
 	}
 	if scanner.Err() == nil {
-		t.Fatal("expected initial extension frame error")
+		t.Fatal("expected initial generic skippable frame error")
 	}
 }
 

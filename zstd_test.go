@@ -279,24 +279,89 @@ func TestZstdDictionaryBackedFrameWithoutFCS(t *testing.T) {
 	}
 }
 
-func TestZstdSkippableExtensionBetweenFrames(t *testing.T) {
-	block1 := []byte("before-extension")
-	block2 := []byte("after-extension")
-	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-ext-1>", block1)
-	record2 := makeRecord("response", "<urn:uuid:zstd-ext-2>", block2)
+func TestZstdGenericSkippableFrameBetweenFrames(t *testing.T) {
+	block1 := []byte("before-skippable")
+	block2 := []byte("after-skippable")
+	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-skippable-1>", block1)
+	record2 := makeRecord("response", "<urn:uuid:zstd-skippable-2>", block2)
 	frame1 := zstdFrame(t, record1)
-	extension := zstdSkippableFrame(0x184D2A50, []byte("extension payload"))
+	skippable := zstdSkippableFrame(0x184D2A50, []byte("generic payload"))
 	frame2 := zstdFrame(t, record2)
-	stream := append(append(append([]byte{}, frame1...), extension...), frame2...)
+	stream := append(append(append([]byte{}, frame1...), skippable...), frame2...)
 
 	refs := scanZstdSource(t, stream)
 	if len(refs) != 2 {
 		t.Fatalf("expected 2 records, got %d", len(refs))
 	}
 	assertExactRanges(t, refs[0], Range{Off: 0, Size: int64(len(frame1))})
-	assertExactRanges(t, refs[1], Range{Off: int64(len(frame1) + len(extension)), Size: int64(len(frame2))})
+	assertExactRanges(t, refs[1], Range{Off: int64(len(frame1) + len(skippable)), Size: int64(len(frame2))})
 	assertZstdOpenBlock(t, refs[0], block1)
 	assertZstdOpenBlock(t, refs[1], block2)
+}
+
+func TestZstdEmptyGenericSkippableFrameBetweenFrames(t *testing.T) {
+	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-empty-skippable-1>", []byte("ABC"))
+	record2 := makeRecord("response", "<urn:uuid:zstd-empty-skippable-2>", []byte("DEF"))
+	frame1 := zstdFrame(t, record1)
+	skippable := zstdSkippableFrame(0x184D2A50, nil)
+	frame2 := zstdFrame(t, record2)
+	stream := append(append(append([]byte{}, frame1...), skippable...), frame2...)
+
+	refs := scanZstdSource(t, stream)
+	if len(refs) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(refs))
+	}
+	assertExactRanges(t, refs[0], Range{Off: 0, Size: int64(len(frame1))})
+	assertExactRanges(t, refs[1], Range{Off: int64(len(frame1) + len(skippable)), Size: int64(len(frame2))})
+}
+
+func TestZstdConsecutiveGenericSkippableFrames(t *testing.T) {
+	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-consecutive-skippable-1>", []byte("ABC"))
+	record2 := makeRecord("response", "<urn:uuid:zstd-consecutive-skippable-2>", []byte("DEF"))
+	frame1 := zstdFrame(t, record1)
+	skippable1 := zstdSkippableFrame(0x184D2A50, nil)
+	skippable2 := zstdSkippableFrame(0x184D2A51, []byte("metadata"))
+	skippable3 := zstdSkippableFrame(0x184D2A5F, []byte("more metadata"))
+	frame2 := zstdFrame(t, record2)
+	stream := append([]byte{}, frame1...)
+	stream = append(stream, skippable1...)
+	stream = append(stream, skippable2...)
+	stream = append(stream, skippable3...)
+	stream = append(stream, frame2...)
+
+	refs := scanZstdSource(t, stream)
+	if len(refs) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(refs))
+	}
+	secondOff := len(frame1) + len(skippable1) + len(skippable2) + len(skippable3)
+	assertExactRanges(t, refs[0], Range{Off: 0, Size: int64(len(frame1))})
+	assertExactRanges(t, refs[1], Range{Off: int64(secondOff), Size: int64(len(frame2))})
+}
+
+func TestZstdGenericSkippableFramesMixedWithSeekTable(t *testing.T) {
+	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-mixed-skippable-1>", []byte("ABC"))
+	record2 := makeRecord("response", "<urn:uuid:zstd-mixed-skippable-2>", []byte("DEF"))
+	frame1 := zstdFrame(t, record1)
+	generic1 := zstdSkippableFrame(0x184D2A50, []byte("before seek table"))
+	seekTable := recordLocalSeekTableForTest(zstdSeekEntry{
+		compSize:   uint32(len(frame1)),
+		uncompSize: uint32(len(record1)),
+	})
+	generic2 := zstdSkippableFrame(0x184D2A51, []byte("after seek table"))
+	frame2 := zstdFrame(t, record2)
+	stream := append([]byte{}, frame1...)
+	stream = append(stream, generic1...)
+	stream = append(stream, seekTable...)
+	stream = append(stream, generic2...)
+	stream = append(stream, frame2...)
+
+	refs := scanZstdSource(t, stream)
+	if len(refs) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(refs))
+	}
+	secondOff := len(frame1) + len(generic1) + len(seekTable) + len(generic2)
+	assertExactRanges(t, refs[0], Range{Off: 0, Size: int64(len(frame1))})
+	assertExactRanges(t, refs[1], Range{Off: int64(secondOff), Size: int64(len(frame2))})
 }
 
 func TestZstdOversizedSkippableFramesDoNotAllocatePayloads(t *testing.T) {
@@ -313,10 +378,10 @@ func TestZstdOversizedSkippableFramesDoNotAllocatePayloads(t *testing.T) {
 		t.Fatalf("first record: %v", scanner.Err())
 	}
 	if scanner.Next() {
-		t.Fatal("unexpected record after truncated extension frame")
+		t.Fatal("unexpected record after truncated generic skippable frame")
 	}
 	if scanner.Err() == nil {
-		t.Fatal("expected truncated extension frame error")
+		t.Fatal("expected truncated generic skippable frame error")
 	}
 
 	dictFrame := zstdSkippableFrameHeader(zstdDictFrameMagic, uint32(maxZstdDictionarySize+1))
