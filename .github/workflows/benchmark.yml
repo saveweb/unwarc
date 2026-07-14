@@ -97,6 +97,7 @@ jobs:
           go test "${tag_args[@]}" -run '^$' -bench '^BenchmarkCorpusWARC' -benchmem -count=5 . | tee benchmark.txt
 
       - name: Aggregate benchmark samples
+        shell: bash
         run: |
           go run ./internal/benchjson \
             -input benchmark.txt \
