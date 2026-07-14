@@ -96,33 +96,96 @@ jobs:
           fi
           go test "${tag_args[@]}" -run '^$' -bench '^BenchmarkCorpusWARC' -benchmem -count=5 . | tee benchmark.txt
 
+      - name: Aggregate benchmark samples
+        run: |
+          go run ./internal/benchjson \
+            -input benchmark.txt \
+            -smaller benchmark-smaller.json \
+            -bigger benchmark-bigger.json
+
       - name: Upload raw benchmark output
         uses: actions/upload-artifact@v4
         with:
           name: corpus-benchmark-output-${{ matrix.backend }}
-          path: benchmark.txt
+          path: |
+            benchmark.txt
+            benchmark-smaller.json
+            benchmark-bigger.json
 
-      - name: Compare benchmark result
+      - name: Compare latency and allocation results
         if: github.event_name != 'push' || github.ref != 'refs/heads/main'
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: ${{ matrix.benchmark-name }}
-          tool: go
-          output-file-path: benchmark.txt
+          name: ${{ matrix.benchmark-name }} latency and allocations
+          tool: customSmallerIsBetter
+          output-file-path: benchmark-smaller.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: false
           gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/${{ matrix.backend }}
+          benchmark-data-dir-path: dev/bench/${{ matrix.backend }}/smaller
           summary-always: true
           alert-threshold: '150%'
           fail-threshold: '200%'
           fail-on-alert: true
           max-items-in-chart: 200
 
+      - name: Compare throughput results
+        if: github.event_name != 'push' || github.ref != 'refs/heads/main'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: ${{ matrix.benchmark-name }} throughput
+          tool: customBiggerIsBetter
+          output-file-path: benchmark-bigger.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: false
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/${{ matrix.backend }}/bigger
+          summary-always: true
+          alert-threshold: '150%'
+          fail-threshold: '200%'
+          fail-on-alert: true
+          max-items-in-chart: 200
+
+  corpus-clean-legacy-history:
+    name: Remove legacy benchmark history
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: corpus
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout benchmark history
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Remove unaggregated benchmark charts
+        shell: bash
+        run: |
+          for backend in purego-linux purego-macos purego-windows native-linux native-macos; do
+            if [ -d "dev/bench/$backend" ]; then
+              find "dev/bench/$backend" -maxdepth 1 -type f -delete
+            fi
+          done
+
+      - name: Publish history cleanup
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add dev/bench
+          git commit -m 'Remove unaggregated benchmark history'
+          git push
+
   corpus-publish:
     name: Publish benchmark history
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: corpus
+    needs:
+      - corpus
+      - corpus-clean-legacy-history
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -152,16 +215,33 @@ jobs:
           name: corpus-benchmark-output-${{ matrix.backend }}
           path: benchmark-output
 
-      - name: Store benchmark result
+      - name: Store latency and allocation results
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: ${{ matrix.benchmark-name }}
-          tool: go
-          output-file-path: benchmark-output/benchmark.txt
+          name: ${{ matrix.benchmark-name }} latency and allocations
+          tool: customSmallerIsBetter
+          output-file-path: benchmark-output/benchmark-smaller.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/${{ matrix.backend }}
+          benchmark-data-dir-path: dev/bench/${{ matrix.backend }}/smaller
+          summary-always: true
+          comment-on-alert: true
+          alert-threshold: '150%'
+          fail-threshold: '200%'
+          fail-on-alert: true
+          max-items-in-chart: 200
+
+      - name: Store throughput results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: ${{ matrix.benchmark-name }} throughput
+          tool: customBiggerIsBetter
+          output-file-path: benchmark-output/benchmark-bigger.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/${{ matrix.backend }}/bigger
           summary-always: true
           comment-on-alert: true
           alert-threshold: '150%'
