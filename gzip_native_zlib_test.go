@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"runtime"
 	"testing"
 
 	"github.com/klauspost/compress/gzip"
@@ -64,6 +65,23 @@ func TestNativeGzipReaderMembersAndErrors(t *testing.T) {
 	}
 	if closeErr != nil {
 		t.Fatalf("close corrupt native gzip: %v", closeErr)
+	}
+}
+
+func TestNativeGzipReaderRepeatedDecodeWithGC(t *testing.T) {
+	block := bytes.Repeat([]byte("native gzip stress block\n"), 1024)
+	record := makeRecord("response", "<urn:uuid:native-gzip-stress>", block)
+	member := gzipMember(t, record)
+
+	for i := 0; i < 250; i++ {
+		cr := newCountingReader(readerOnly{r: bytes.NewReader(member)})
+		got := readNativeGzipMember(t, cr)
+		if !bytes.Equal(got, record) {
+			t.Fatalf("iteration %d decoded %d bytes, want %d", i, len(got), len(record))
+		}
+		if i%10 == 0 {
+			runtime.GC()
+		}
 	}
 }
 

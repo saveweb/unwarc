@@ -4,6 +4,7 @@ package unwarc
 
 /*
 #cgo pkg-config: zlib
+#include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
 
@@ -40,9 +41,13 @@ import (
 
 var errCountingReaderUnbuffered = errors.New("counting reader has no buffered source")
 
+const nativeGzipBufferSize = 32 * 1024
+
 type nativeGzipReader struct {
 	cr          *countingReader
 	z           C.z_stream
+	inBuf       unsafe.Pointer
+	outBuf      unsafe.Pointer
 	initialized bool
 }
 
@@ -64,10 +69,14 @@ func (r *nativeGzipReader) Reset(cr *countingReader) error {
 	if r.initialized {
 		_ = r.Close()
 	}
+	if err := r.ensureBuffers(); err != nil {
+		return err
+	}
 	r.cr = cr
 	C.memset(unsafe.Pointer(&r.z), 0, C.size_t(unsafe.Sizeof(r.z)))
 	ret := C.unwarc_inflate_init2(&r.z)
 	if ret != C.Z_OK {
+		r.freeBuffers()
 		return zlibError("inflateInit2", ret)
 	}
 	r.initialized = true
@@ -83,19 +92,25 @@ func (r *nativeGzipReader) Read(p []byte) (int, error) {
 		var got int
 		var ret C.int
 		err := processCountingReaderBufferedInput(r.cr, func(in []byte) (int, error) {
+			inLen := min(len(in), nativeGzipBufferSize)
+			outLen := min(len(p), nativeGzipBufferSize)
+			C.memcpy(r.inBuf, unsafe.Pointer(&in[0]), C.size_t(inLen))
 			var consumed C.uInt
 			var produced C.uInt
 			ret = C.unwarc_inflate(
 				&r.z,
-				(*C.Bytef)(unsafe.Pointer(&in[0])),
-				C.uInt(len(in)),
-				(*C.Bytef)(unsafe.Pointer(&p[0])),
-				C.uInt(len(p)),
+				(*C.Bytef)(r.inBuf),
+				C.uInt(inLen),
+				(*C.Bytef)(r.outBuf),
+				C.uInt(outLen),
 				&consumed,
 				&produced,
 			)
 			used = int(consumed)
 			got = int(produced)
+			if got > 0 {
+				copy(p, unsafe.Slice((*byte)(r.outBuf), got))
+			}
 			return used, nil
 		})
 		if err != nil {
@@ -125,8 +140,34 @@ func (r *nativeGzipReader) Read(p []byte) (int, error) {
 	}
 }
 
+func (r *nativeGzipReader) ensureBuffers() error {
+	if r.inBuf == nil {
+		r.inBuf = C.malloc(C.size_t(nativeGzipBufferSize))
+	}
+	if r.outBuf == nil {
+		r.outBuf = C.malloc(C.size_t(nativeGzipBufferSize))
+	}
+	if r.inBuf == nil || r.outBuf == nil {
+		r.freeBuffers()
+		return fmt.Errorf("native gzip: failed to allocate zlib buffers")
+	}
+	return nil
+}
+
+func (r *nativeGzipReader) freeBuffers() {
+	if r.inBuf != nil {
+		C.free(r.inBuf)
+		r.inBuf = nil
+	}
+	if r.outBuf != nil {
+		C.free(r.outBuf)
+		r.outBuf = nil
+	}
+}
+
 func (r *nativeGzipReader) Close() error {
 	if !r.initialized {
+		r.freeBuffers()
 		return nil
 	}
 	r.z.next_in = nil
@@ -135,6 +176,7 @@ func (r *nativeGzipReader) Close() error {
 	r.z.avail_out = 0
 	ret := C.inflateEnd(&r.z)
 	r.initialized = false
+	r.freeBuffers()
 	if ret != C.Z_OK {
 		return zlibError("inflateEnd", ret)
 	}
