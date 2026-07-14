@@ -227,7 +227,7 @@ func scanCorpusPath(t *testing.T, path string, strict bool) ([]*RecordRef, error
 	if err != nil {
 		return nil, err
 	}
-	defer scanner.Close()
+	defer closeTest(t, scanner)
 
 	var refs []*RecordRef
 	for scanner.Next() {
@@ -245,7 +245,7 @@ func scanCorpusPathN(t *testing.T, path string, strict bool, limit int) ([]*Reco
 	if err != nil {
 		return nil, err
 	}
-	defer scanner.Close()
+	defer closeTest(t, scanner)
 
 	refs := make([]*RecordRef, 0, min(limit, 16))
 	for len(refs) < limit && scanner.Next() {

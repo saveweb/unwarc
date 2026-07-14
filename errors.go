@@ -3,15 +3,27 @@ package unwarc
 import "errors"
 
 var (
-	// ErrInvalidWARCHeader reports a record header that does not start with a
-	// supported WARC version line.
-	ErrInvalidWARCHeader = errors.New("invalid WARC header")
+	// ErrInvalidWARCHeader reports an invalid WARC record header, which consists
+	// of a version line followed by WARC named fields.
+	ErrInvalidWARCHeader = errors.New("invalid WARC record header")
+
+	// ErrInvalidWARCFields reports malformed application/warc-fields content.
+	ErrInvalidWARCFields = errors.New("invalid application/warc-fields block")
+
+	// ErrInvalidWARCField reports malformed WARC named-field syntax. It may be
+	// wrapped by ErrInvalidWARCHeader or ErrInvalidWARCFields depending on where
+	// the field appeared.
+	ErrInvalidWARCField = errors.New("invalid WARC named field")
 
 	// ErrMissingContentLength reports a WARC record without Content-Length.
 	ErrMissingContentLength = errors.New("missing Content-Length")
 
 	// ErrInvalidContentLength reports a negative or unparsable Content-Length.
 	ErrInvalidContentLength = errors.New("invalid Content-Length")
+
+	// ErrFoldedWARCField reports a folded WARC named field when the configured
+	// folded-field policy rejects continuations.
+	ErrFoldedWARCField = errors.New("folded WARC field")
 
 	// ErrMissingRecordTrailer reports a missing or invalid record trailer.
 	ErrMissingRecordTrailer = errors.New("missing record trailer")

@@ -256,25 +256,53 @@ type RecordLocation struct {
 	Issues []Issue
 }
 
-// Header is a parsed WARC record header.
-type Header struct {
-	Version string
-	Fields  []HeaderField
+// FoldedFieldPolicy controls whether WARC named-field continuation lines are
+// accepted in record headers and application/warc-fields blocks. WARC 1.0 and
+// 1.1 permit continuation lines that begin with space or tab.
+//
+// https://github.com/iipc/warc-specifications/issues/74
+type FoldedFieldPolicy int
+
+const (
+	// FoldedFieldAccept unfolds continuation lines and marks the affected
+	// WARCField values. This is the default for backward compatibility.
+	FoldedFieldAccept FoldedFieldPolicy = iota
+	// FoldedFieldReject returns ErrFoldedWARCField when a continuation line is
+	// encountered.
+	FoldedFieldReject
+)
+
+func (p FoldedFieldPolicy) valid() bool {
+	return p == FoldedFieldAccept || p == FoldedFieldReject
 }
 
-// HeaderField is a single parsed WARC header field.
-type HeaderField struct {
+// RecordHeader is a parsed WARC record header. A record header consists of the
+// WARC version line followed by WARC named fields. It is distinct from an
+// application/warc-fields record block, which contains fields without a
+// version line.
+type RecordHeader struct {
+	Version string
+	Fields  []WARCField
+}
+
+// WARCField is a parsed WARC named field. The same named-field syntax is used
+// inside record headers and application/warc-fields blocks.
+type WARCField struct {
 	Name  string
 	Value string
+
+	// Folded reports whether Value was unfolded from one or more continuation
+	// lines. RecordRef.RawHeader preserves original record-header bytes.
+	Folded bool
 }
 
-// Get returns the first header field value whose name matches case
+// HasFoldedFields reports whether any named field used a continuation line.
+func (h RecordHeader) HasFoldedFields() bool {
+	return hasFoldedFields(h.Fields)
+}
+
+// Get returns the first WARC named-field value whose name matches case
 // insensitively.
-func (h Header) Get(name string) (string, bool) {
-	for _, f := range h.Fields {
-		if equalHeaderName(f.Name, name) {
-			return f.Value, true
-		}
-	}
-	return "", false
+func (h RecordHeader) Get(name string) (string, bool) {
+	return getNamedField(h.Fields, name)
 }

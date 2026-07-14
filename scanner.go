@@ -19,6 +19,15 @@ type ScannerOptions struct {
 	// violations to fatal scanner errors.
 	Strict bool
 
+	// FoldedFields controls named-field continuation lines within the WARC
+	// record header. The zero value accepts and unfolds them for WARC 1.0/1.1
+	// compatibility. Rejecting them returns ErrFoldedWARCField.
+	FoldedFields FoldedFieldPolicy
+
+	// Resynchronize permits extra CRLF lines at record boundaries. The default
+	// is false. It does not skip arbitrary bytes or relax header parsing.
+	Resynchronize bool
+
 	// MaxBufferedZstdFrameSize bounds the per-frame fast-path buffer used while
 	// scanning WARC-zstd. Frames without Frame_Content_Size, frames whose
 	// declared content size exceeds this value, or frames whose compressed bytes
@@ -210,12 +219,12 @@ func (s *Scanner) readRecord() (*RecordRef, error) {
 }
 
 func (s *Scanner) readRecordStart() (*RecordRef, int64, error) {
-	start := s.stream.UncompOffset()
-	rawHeader, err := readWARCHeader(s.stream)
+	rawHeader, err := readRecordHeader(s.stream, s.opts.Resynchronize)
 	if err != nil {
 		return nil, 0, err
 	}
-	header, contentLength, err := parseHeaderBlock(rawHeader)
+	start := s.stream.UncompOffset() - int64(len(rawHeader))
+	header, contentLength, err := parseRecordHeaderWithOptions(rawHeader, s.opts.FoldedFields)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -371,24 +380,19 @@ func streamZstdDictionaries(stream segmentStream) [][]byte {
 	return zs.PrefixDictionaries()
 }
 
-func readWARCHeader(r io.Reader) ([]byte, error) {
+func readRecordHeader(r io.Reader, resynchronize bool) ([]byte, error) {
 	var raw bytes.Buffer
 	for {
+		// Here, I chose to read 1024 KB of data rather than reading until a CRLF
+		// This prevents OOM from being hit when the user provides a massive non-WARC file.
 		line, err := readLine(r, 1024*1024)
 		if err != nil {
-			if errors.Is(err, io.EOF) && raw.Len() == 0 {
-				return nil, io.EOF
-			}
 			return nil, err
 		}
-		if len(line) == 0 {
+		if resynchronize && bytes.Equal(line, []byte("\r\n")) {
 			continue
 		}
-		trimmed := bytes.TrimRight(line, "\r\n")
-		if len(trimmed) == 0 {
-			continue
-		}
-		if !bytes.Equal(trimmed, []byte("WARC/1.0")) && !bytes.Equal(trimmed, []byte("WARC/1.1")) {
+		if !bytes.Equal(line, []byte("WARC/1.0\r\n")) && !bytes.Equal(line, []byte("WARC/1.1\r\n")) {
 			return nil, ErrInvalidWARCHeader
 		}
 		raw.Write(line)
@@ -400,9 +404,14 @@ func readWARCHeader(r io.Reader) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		if !bytes.HasSuffix(line, []byte("\r\n")) {
+			return nil, ErrInvalidWARCHeader
+		}
+		if bytes.ContainsRune(line[:len(line)-2], '\r') {
+			return nil, ErrInvalidWARCHeader
+		}
 		raw.Write(line)
-		trimmed := bytes.TrimRight(line, "\r\n")
-		if len(trimmed) == 0 {
+		if bytes.Equal(line, []byte("\r\n")) {
 			return raw.Bytes(), nil
 		}
 	}

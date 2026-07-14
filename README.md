@@ -24,6 +24,23 @@ Lazy random access is strongest for plain, gzip, and zstd. bzip2 and xz are
 decoded as whole-file streams; independent per-segment lazy access for those
 formats intentionally returns `ErrSegmentedCompressionNotImplemented`.
 
+## WARC Terminology
+
+This package follows the WARC grammar's hierarchy:
+
+- A **record header** is the WARC version line followed by the record's WARC
+  named fields and the terminating empty CRLF line. It is represented by
+  `RecordHeader`; its individual named fields are `WARCField` values.
+- An **`application/warc-fields` block** contains WARC named fields without a
+  WARC version line. It is represented by `WARCFields` and parsed with
+  `ParseWARCFields`.
+- The **record block** begins after the record header and contains exactly the
+  number of octets declared by `Content-Length`.
+- The record terminator is the `CRLF CRLF` following the record block.
+
+Record headers and `application/warc-fields` blocks therefore share named-field
+syntax, but they are not the same structure.
+
 ## Strict Mode
 
 `ScannerOptions.Strict` makes malformed record trailers fatal. For WARC-zstd it
@@ -36,6 +53,52 @@ Non-strict scans keep parsing when possible and record diagnostics in
 `Frame_Content_Size` are decoded as streams and can still be lazy-opened after
 finalization when their compressed range is known and the record covers the
 whole frame.
+
+WARC version lines, header CRLF framing, and named-field syntax are always
+parsed strictly. `ScannerOptions.Strict` controls whether malformed record
+trailers and compression-layout violations are fatal rather than diagnostic.
+Set `ScannerOptions.Resynchronize` to permit extra complete CRLF lines at record
+boundaries. It is disabled by default and never skips arbitrary bytes or
+relaxes parsing inside a record header.
+
+## Folded WARC Named Fields
+
+WARC 1.0 and 1.1 allow a named field to continue on lines beginning with a
+space or tab. The named-field syntax is shared by fields inside record headers
+and by `application/warc-fields` blocks such as the record block of a typical
+`warcinfo` record. By default, `unwarc` accepts these fields for compatibility,
+replaces each continuation boundary with a single space, and sets
+`WARCField.Folded`.
+
+`RecordHeader.HasFoldedFields` reports folding in a record header, and
+`WARCFields.HasFoldedFields` reports it in a parsed fields block.
+`RecordRef.RawHeader` always preserves the original record-header bytes.
+
+Set `ScannerOptions.FoldedFields` to `FoldedFieldReject` when an application
+wants to reject continuation lines:
+
+```go
+scanner, err := unwarc.NewScanner(r, unwarc.ScannerOptions{
+	Compression:  unwarc.CompressionUnknown,
+	FoldedFields: unwarc.FoldedFieldReject,
+})
+```
+
+`OpenWARCZstdSeekIndexWithOptions` provides the same policy for reverse-built
+seek indexes. Rejection returns `ErrFoldedWARCField`; accepted folded fields are
+not reported as malformed-record issues because they are valid WARC syntax.
+
+Use `ParseWARCFields` for an `application/warc-fields` block:
+
+```go
+fields, err := unwarc.ParseWARCFields(block, unwarc.WARCFieldsOptions{
+	FoldedFields: unwarc.FoldedFieldAccept,
+})
+if err != nil {
+	return err
+}
+software, _ := fields.Get("software")
+```
 
 `ScannerOptions.MaxBufferedZstdFrameSize` bounds the in-memory fast path for
 WARC-zstd frames. Frames without `Frame_Content_Size`, frames larger than this
@@ -226,16 +289,18 @@ already processed.
 fast reverse indexing. In this profile, each record is encoded as:
 
 ```text
-zstd frame: WARC header bytes
+zstd frame: WARC record-header bytes
 one or more zstd frames: payload bytes, optionally chunked, plus record trailer
 skippable frame: record-local zstd seek table for the frames above
 ```
 
-The seek table is local to the record, so a record copied into another WARC file
-still carries meaningful frame sizes. The index builder walks backward from the
-file tail, reads each record-local seek table, and decodes only the header
-frame. Payload frames are not decoded while building the index; `OpenPayload`
-can later reopen only the payload frame ranges.
+Here, "WARC record-header bytes" means the complete record header: version
+line, WARC named fields, and the terminating empty CRLF line. The seek table is
+local to the record, so a record copied into another WARC file still carries
+meaningful frame sizes. The index builder walks backward from the file tail,
+reads each record-local seek table, and decodes only the record-header frame.
+Payload frames are not decoded while building the index; `OpenPayload` can
+later reopen only the payload frame ranges.
 
 Small records can use a single payload frame. Large media responses can split
 payload bytes across many smaller frames; `RecordLocation.PayloadFrames` maps
@@ -249,7 +314,7 @@ For HTTP response/request records, writers may also split the WARC payload on
 the HTTP message boundary as a best-effort optimization:
 
 ```text
-zstd frame: WARC header bytes
+zstd frame: WARC record-header bytes
 zstd frame: HTTP header bytes
 one or more zstd frames: HTTP body bytes
 optional zstd frame: WARC record trailer
@@ -263,8 +328,9 @@ the first body frame. The reader does not label frames as HTTP header or body.
 
 Writer recommendation:
 
-- For small records, prefer the compact layout: one WARC header frame and one
-  payload-plus-trailer frame. The extra frame boundaries are rarely worth it.
+- For small records, prefer the compact layout: one WARC record-header frame
+  and one payload-plus-trailer frame. The extra frame boundaries are rarely
+  worth it.
 - For large HTTP responses, especially media replay, split best-effort at the
   HTTP message boundary and then chunk the HTTP body into independently
   seekable frames. This gives replay code a cheap body starting point and lets
@@ -278,9 +344,9 @@ Writer recommendation:
   generic payload frame layout and preserve the payload bytes unchanged.
 
 For `Content-Length: 0` records, the recommended compact form is one zstd frame
-containing the WARC header plus record trailer, followed by a one-entry
+containing the WARC record header plus record trailer, followed by a one-entry
 record-local seek table. The reader also accepts the two-frame form with a WARC
-header frame and a trailer-only frame, but `OpenPayload` returns an empty reader
+record-header frame and a trailer-only frame, but `OpenPayload` returns an empty reader
 without reopening either frame.
 
 ```go
@@ -352,8 +418,11 @@ if err := scanner.Err(); err != nil {
 Sentinel errors are exported for `errors.Is`, including:
 
 - `ErrInvalidWARCHeader`
+- `ErrInvalidWARCFields`
+- `ErrInvalidWARCField`
 - `ErrMissingContentLength`
 - `ErrInvalidContentLength`
+- `ErrFoldedWARCField`
 - `ErrMissingRecordTrailer`
 - `ErrUnsupportedCompression`
 - `ErrSegmentedCompressionNotImplemented`

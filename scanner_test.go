@@ -25,7 +25,11 @@ func TestScannerPlainOffsetsAndLazyPayload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer scanner.Close()
+	t.Cleanup(func() {
+		if err := scanner.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	var refs []*RecordRef
 	for scanner.Next() {
@@ -48,13 +52,123 @@ func TestScannerPlainOffsetsAndLazyPayload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer payload.Close()
+	defer closeTest(t, payload)
 	got, err := io.ReadAll(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != "DEFG" {
 		t.Fatalf("unexpected payload %q", got)
+	}
+}
+
+func TestReadWARCHeaderRejectsNonCanonicalFraming(t *testing.T) {
+	tests := []struct {
+		name string
+		data string
+	}{
+		{name: "leading CRLF", data: "\r\nWARC/1.1\r\nContent-Length: 0\r\n\r\n"},
+		{name: "leading LF", data: "\nWARC/1.1\r\nContent-Length: 0\r\n\r\n"},
+		{name: "LF version line", data: "WARC/1.1\nContent-Length: 0\r\n\r\n"},
+		{name: "extra CR in version line", data: "WARC/1.1\r\r\nContent-Length: 0\r\n\r\n"},
+		{name: "LF field line", data: "WARC/1.1\r\nContent-Length: 0\n\r\n"},
+		{name: "LF header terminator", data: "WARC/1.1\r\nContent-Length: 0\r\n\n"},
+		{name: "extra CR in header terminator", data: "WARC/1.1\r\nContent-Length: 0\r\n\r\r\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := readRecordHeader(bytes.NewBufferString(tt.data), false)
+			if !errors.Is(err, ErrInvalidWARCHeader) {
+				t.Fatalf("error = %v, want %v", err, ErrInvalidWARCHeader)
+			}
+		})
+	}
+}
+
+func TestScannerRejectsExtraCRLFBetweenRecords(t *testing.T) {
+	first := makeRecord("warcinfo", "<urn:uuid:extra-crlf-1>", nil)
+	second := makeRecord("response", "<urn:uuid:extra-crlf-2>", nil)
+	data := append(append(append([]byte{}, first...), []byte("\r\n")...), second...)
+
+	scanner, err := NewScanner(bytes.NewReader(data), ScannerOptions{Compression: CompressionPlain})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !scanner.Next() {
+		t.Fatalf("first record: %v", scanner.Err())
+	}
+	if scanner.Next() {
+		t.Fatal("second record unexpectedly accepted after extra CRLF")
+	}
+	if !errors.Is(scanner.Err(), ErrInvalidWARCHeader) {
+		t.Fatalf("error = %v, want %v", scanner.Err(), ErrInvalidWARCHeader)
+	}
+}
+
+func TestScannerResynchronizesAcrossExtraCRLF(t *testing.T) {
+	first := makeRecord("warcinfo", "<urn:uuid:resync-1>", nil)
+	second := makeRecord("response", "<urn:uuid:resync-2>", nil)
+	data := append([]byte("\r\n"), first...)
+	data = append(data, []byte("\r\n\r\n")...)
+	data = append(data, second...)
+
+	scanner, err := NewScannerFromSource(newBytesSource(data), ScannerOptions{
+		Compression:   CompressionPlain,
+		Resynchronize: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := scanner.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+
+	if !scanner.Next() {
+		t.Fatalf("first record: %v", scanner.Err())
+	}
+	firstRef := scanner.RecordRef()
+	if firstRef.Location.Uncomp.Off != 2 {
+		t.Fatalf("first offset = %d, want 2", firstRef.Location.Uncomp.Off)
+	}
+
+	if !scanner.Next() {
+		t.Fatalf("second record: %v", scanner.Err())
+	}
+	secondRef := scanner.RecordRef()
+	wantSecondOff := int64(2 + len(first) + 4)
+	if secondRef.Location.Uncomp.Off != wantSecondOff {
+		t.Fatalf("second offset = %d, want %d", secondRef.Location.Uncomp.Off, wantSecondOff)
+	}
+	if got := readAllFrom(t, secondRef.OpenRaw); !bytes.Equal(got, second) {
+		t.Fatalf("second raw record = %q, want %q", got, second)
+	}
+
+	if scanner.Next() {
+		t.Fatal("unexpected third record")
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestScannerResynchronizationDoesNotSkipArbitraryBytes(t *testing.T) {
+	record := makeRecord("warcinfo", "<urn:uuid:resync-garbage>", nil)
+	data := append([]byte("garbage\r\n"), record...)
+	scanner, err := NewScanner(bytes.NewReader(data), ScannerOptions{
+		Compression:   CompressionPlain,
+		Resynchronize: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scanner.Next() {
+		t.Fatal("record unexpectedly accepted after arbitrary bytes")
+	}
+	if !errors.Is(scanner.Err(), ErrInvalidWARCHeader) {
+		t.Fatalf("error = %v, want %v", scanner.Err(), ErrInvalidWARCHeader)
 	}
 }
 
@@ -158,7 +272,7 @@ func TestScannerNextPayloadClosesPreviousPayload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ref1, payload, err := scanner.NextPayload()
+	ref1, _, err := scanner.NextPayload()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -466,7 +580,7 @@ func zstdFrame(t *testing.T, data []byte) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer enc.Close()
+	defer closeTest(t, enc)
 	return enc.EncodeAll(data, nil)
 }
 

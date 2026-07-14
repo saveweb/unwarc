@@ -147,12 +147,14 @@ func realZstdVariantPaths(gzipPath string) zstdVariantPaths {
 	}
 }
 
-func writeRealZstdVariants(paths zstdVariantPaths) (realCorpusStats, error) {
+func writeRealZstdVariants(paths zstdVariantPaths) (stats realCorpusStats, err error) {
 	in, err := os.Open(paths.Gzip)
 	if err != nil {
 		return realCorpusStats{}, err
 	}
-	defer in.Close()
+	defer func() {
+		err = errors.Join(err, in.Close())
+	}()
 
 	scanner, err := NewScanner(in, ScannerOptions{
 		Compression: CompressionUnknown,
@@ -161,20 +163,22 @@ func writeRealZstdVariants(paths zstdVariantPaths) (realCorpusStats, error) {
 	if err != nil {
 		return realCorpusStats{}, err
 	}
-	defer scanner.Close()
+	defer func() {
+		err = errors.Join(err, scanner.Close())
+	}()
 
 	fcsOut, fcsTmp, err := createVariantTemp(paths.FCS)
 	if err != nil {
 		return realCorpusStats{}, err
 	}
-	defer os.Remove(fcsTmp)
+	defer func() { _ = os.Remove(fcsTmp) }()
 
 	noFCSOut, noFCSTmp, err := createVariantTemp(paths.NoFCS)
 	if err != nil {
 		_ = fcsOut.Close()
 		return realCorpusStats{}, err
 	}
-	defer os.Remove(noFCSTmp)
+	defer func() { _ = os.Remove(noFCSTmp) }()
 
 	fcsEncoder, err := zstd.NewWriter(nil, zstd.WithEncoderCRC(true), zstd.WithEncoderConcurrency(1))
 	if err != nil {
@@ -182,7 +186,9 @@ func writeRealZstdVariants(paths zstdVariantPaths) (realCorpusStats, error) {
 		_ = noFCSOut.Close()
 		return realCorpusStats{}, err
 	}
-	defer fcsEncoder.Close()
+	defer func() {
+		err = errors.Join(err, fcsEncoder.Close())
+	}()
 
 	noFCSEncoder, err := zstd.NewWriter(nil,
 		zstd.WithEncoderCRC(true),
@@ -194,9 +200,11 @@ func writeRealZstdVariants(paths zstdVariantPaths) (realCorpusStats, error) {
 		_ = noFCSOut.Close()
 		return realCorpusStats{}, err
 	}
-	defer noFCSEncoder.Close()
+	defer func() {
+		err = errors.Join(err, noFCSEncoder.Close())
+	}()
 
-	stats, err := writeZstdVariantRecords(scanner, fcsOut, noFCSOut, fcsEncoder, noFCSEncoder)
+	stats, err = writeZstdVariantRecords(scanner, fcsOut, noFCSOut, fcsEncoder, noFCSEncoder)
 	if closeErr := fcsOut.Close(); err == nil {
 		err = closeErr
 	}
@@ -339,15 +347,16 @@ func zstdFrameWithoutContentSize(frame []byte) ([]byte, error) {
 	return out, nil
 }
 
-func scanRealCorpusVariant(path string, opts ScannerOptions) (realCorpusStats, map[IssueCode]int, error) {
+func scanRealCorpusVariant(path string, opts ScannerOptions) (stats realCorpusStats, issues map[IssueCode]int, err error) {
 	scanner, err := NewScannerFromSource(NewFileSource(path), opts)
 	if err != nil {
 		return realCorpusStats{}, nil, err
 	}
-	defer scanner.Close()
+	defer func() {
+		err = errors.Join(err, scanner.Close())
+	}()
 
-	var stats realCorpusStats
-	issues := make(map[IssueCode]int)
+	issues = make(map[IssueCode]int)
 	for {
 		ref, payload, err := scanner.NextPayload()
 		if errors.Is(err, io.EOF) {

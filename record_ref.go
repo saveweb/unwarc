@@ -3,6 +3,7 @@ package unwarc
 import (
 	"bytes"
 	"compress/bzip2"
+	"errors"
 	"fmt"
 	"io"
 
@@ -14,12 +15,17 @@ import (
 // RecordRef describes a scanned WARC record and how to reopen it after its
 // location has been finalized.
 type RecordRef struct {
-	Header    Header
+	// Header is the parsed WARC record header: version plus named fields.
+	Header RecordHeader
+	// RawHeader preserves the serialized record-header bytes through the
+	// terminating empty CRLF line.
 	RawHeader []byte
 
+	// ContentLength is the record-block length declared by Content-Length.
 	ContentLength int64
-	HeaderLen     int64
-	TrailerLen    int64
+	// HeaderLen is the byte length of RawHeader in the uncompressed record.
+	HeaderLen  int64
+	TrailerLen int64
 
 	Location RecordLocation
 
@@ -37,7 +43,7 @@ func (r *RecordRef) Finalized() bool {
 }
 
 // OpenRaw opens the complete uncompressed record bytes, including the WARC
-// header, content block, and trailer.
+// record header, record block, and trailer.
 func (r *RecordRef) OpenRaw() (io.ReadCloser, error) {
 	if !r.Location.Final {
 		return nil, ErrRecordLocationPending
@@ -189,9 +195,8 @@ func (r *RecordRef) Materialize() (*Record, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer raw.Close()
-	data, err := io.ReadAll(raw)
-	if err != nil {
+	data, readErr := io.ReadAll(raw)
+	if err := errors.Join(readErr, raw.Close()); err != nil {
 		return nil, err
 	}
 	return &Record{

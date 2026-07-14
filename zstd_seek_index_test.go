@@ -79,6 +79,40 @@ func TestWARCZstdSeekIndexBuildsRefsWithoutDecodingPayloadFrames(t *testing.T) {
 	}
 }
 
+func TestWARCZstdSeekIndexFoldedFieldPolicy(t *testing.T) {
+	rawHeader := []byte(
+		"WARC/1.1\r\n" +
+			"X-Archive-Note: first\r\n" +
+			" second:with:colons\r\n" +
+			"Content-Length: 0\r\n" +
+			"\r\n",
+	)
+	data := seekIndexedRecordBytesForTest(t, rawHeader, warcRecordTrailer)
+
+	t.Run("accept by default", func(t *testing.T) {
+		index, err := OpenWARCZstdSeekIndex(newBytesSource(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		field := findWARCFieldInHeader(t, index.Records()[0].Header, "X-Archive-Note")
+		if field.Value != "first second:with:colons" || !field.Folded {
+			t.Fatalf("field = %+v", field)
+		}
+	})
+
+	t.Run("reject", func(t *testing.T) {
+		_, err := OpenWARCZstdSeekIndexWithOptions(newBytesSource(data), WARCZstdSeekIndexOptions{
+			FoldedFields: FoldedFieldReject,
+		})
+		if !errors.Is(err, ErrNotSeekIndexed) {
+			t.Fatalf("error = %v, want %v", err, ErrNotSeekIndexed)
+		}
+		if !errors.Is(err, ErrFoldedWARCField) {
+			t.Fatalf("error = %v, want %v", err, ErrFoldedWARCField)
+		}
+	})
+}
+
 func TestWARCZstdSeekIndexSupportsChunkedPayloadFrames(t *testing.T) {
 	payload := []byte("AAAAABBBBBCCCCCDDDDDEEEEEFFFFF")
 	fixture := newSeekIndexedWARCZstdFixture(t,
@@ -199,27 +233,27 @@ func TestWARCZstdSeekIndexSupportsTwoFrameEmptyRecord(t *testing.T) {
 	}
 }
 
-func TestWARCZstdSeekIndexRejectsHeaderFramePastBoundary(t *testing.T) {
+func TestWARCZstdSeekIndexRejectsRecordHeaderFramePastBoundary(t *testing.T) {
 	record := seekIndexedFixtureRecord{
 		recordType: "response",
 		id:         "<urn:uuid:seek-header-too-long>",
 		payload:    []byte("payload"),
 	}
 	record.rawHeader = makeRecordHeader(record.recordType, record.id, record.payload)
-	headerFrameBytes := append(append([]byte{}, record.rawHeader...), record.payload[:2]...)
+	recordHeaderFrameBytes := append(append([]byte{}, record.rawHeader...), record.payload[:2]...)
 	payloadFrameBytes := append(append([]byte{}, record.payload[2:]...), warcRecordTrailer...)
 
-	data := seekIndexedRecordBytesForTest(t, headerFrameBytes, payloadFrameBytes)
+	data := seekIndexedRecordBytesForTest(t, recordHeaderFrameBytes, payloadFrameBytes)
 	_, err := OpenWARCZstdSeekIndex(newBytesSource(data))
 	if !errors.Is(err, ErrNotSeekIndexed) {
 		t.Fatalf("OpenWARCZstdSeekIndex error = %v, want %v", err, ErrNotSeekIndexed)
 	}
-	if !containsErrorText(err, "not exactly the WARC header boundary") {
-		t.Fatalf("error = %v, want header boundary message", err)
+	if !containsErrorText(err, "does not end at the WARC record-header boundary") {
+		t.Fatalf("error = %v, want record-header boundary message", err)
 	}
 }
 
-func TestWARCZstdSeekIndexRejectsHeaderFrameBeforeBoundary(t *testing.T) {
+func TestWARCZstdSeekIndexRejectsRecordHeaderFrameBeforeBoundary(t *testing.T) {
 	rawHeader := makeRecordHeader("response", "<urn:uuid:seek-header-too-short>", []byte("payload"))
 	data := seekIndexedRecordBytesForTest(t, rawHeader[:len(rawHeader)-3], append([]byte("payload"), warcRecordTrailer...))
 
@@ -227,8 +261,8 @@ func TestWARCZstdSeekIndexRejectsHeaderFrameBeforeBoundary(t *testing.T) {
 	if !errors.Is(err, ErrNotSeekIndexed) {
 		t.Fatalf("OpenWARCZstdSeekIndex error = %v, want %v", err, ErrNotSeekIndexed)
 	}
-	if !containsErrorText(err, "does not contain a complete WARC header") {
-		t.Fatalf("error = %v, want incomplete header message", err)
+	if !containsErrorText(err, "does not contain a complete WARC record header") {
+		t.Fatalf("error = %v, want incomplete record-header message", err)
 	}
 }
 

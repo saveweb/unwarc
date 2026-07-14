@@ -32,7 +32,7 @@ func TestScannerXZWholeStreamAccessModes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer scanner.Close()
+		defer closeTest(t, scanner)
 		refs := assertXZRecords(t, scanner, AccessFromFileStart, wantRanges)
 		if got := readAllFrom(t, refs[0].OpenRaw); !bytes.Equal(got, rec1) {
 			t.Fatalf("first raw record = %q, want %q", got, rec1)
@@ -61,7 +61,7 @@ func TestScannerXZCompressionUnknownDetection(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer scanner.Close()
+			defer closeTest(t, scanner)
 
 			refs := collectScannerRefs(t, scanner)
 			if len(refs) != 1 {

@@ -23,7 +23,7 @@ func TestGzipMemberPerRecordFromSourceLazy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer scanner.Close()
+	defer closeTest(t, scanner)
 
 	refs := collectScannerRefs(t, scanner)
 	if len(refs) != 2 {
@@ -53,7 +53,7 @@ func TestGzipSourceNextPayloadFinalizesAfterPayloadRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer scanner.Close()
+	defer closeTest(t, scanner)
 
 	ref, payloadReader, err := scanner.NextPayload()
 	if err != nil {
@@ -104,7 +104,7 @@ func TestGzipSourceNextPayloadCloseFinalizesRecord(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer scanner.Close()
+	defer closeTest(t, scanner)
 
 	ref, payloadReader, err := scanner.NextPayload()
 	if err != nil {
@@ -146,7 +146,7 @@ func TestGzipSourceNextPayloadDoesNotLazyReopen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer scanner.Close()
+	defer closeTest(t, scanner)
 
 	var records int
 	for {
@@ -207,7 +207,7 @@ func TestGzipSolidMemberAccessModes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer scanner.Close()
+		defer closeTest(t, scanner)
 
 		refs := collectScannerRefs(t, scanner)
 		if len(refs) != 2 {
@@ -245,7 +245,7 @@ func TestGzipRestartUncompOffsetSkipsFromSegmentStart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer scanner.Close()
+	defer closeTest(t, scanner)
 
 	refs := collectScannerRefs(t, scanner)
 	if len(refs) != 3 {
@@ -288,7 +288,7 @@ func TestGzipRecordSpansMembersIssueAndLazyRaw(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer scanner.Close()
+	defer closeTest(t, scanner)
 
 	refs := collectScannerRefs(t, scanner)
 	if len(refs) != 1 {
@@ -335,7 +335,7 @@ func TestGzipCompressionUnknownDetection(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer scanner.Close()
+			defer closeTest(t, scanner)
 
 			refs := collectScannerRefs(t, scanner)
 			if len(refs) != 1 {

@@ -217,7 +217,7 @@ func TestScannerBzip2WholeStreamAccessModes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer scanner.Close()
+		defer closeTest(t, scanner)
 		refs := assertBzip2Records(t, scanner, AccessFromFileStart, wantRanges)
 		if got := readAllFrom(t, refs[0].OpenRaw); !bytes.Equal(got, rec1) {
 			t.Fatalf("first raw record = %q, want %q", got, rec1)
@@ -250,7 +250,7 @@ func TestScannerBzip2CompressionUnknownDetection(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer scanner.Close()
+			defer closeTest(t, scanner)
 
 			assertBzip2Records(t, scanner, AccessFromFileStart, wantRanges)
 		})

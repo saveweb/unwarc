@@ -201,7 +201,7 @@ func TestZstdDictionaryBackedFrameWithoutFCS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer scanner.Close()
+	defer closeTest(t, scanner)
 	if !scanner.Next() {
 		t.Fatalf("expected record: %v", scanner.Err())
 	}
@@ -318,7 +318,7 @@ func TestZstdFrameWithoutFCSStreamsWhenBufferDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer scanner.Close()
+	defer closeTest(t, scanner)
 	if !scanner.Next() {
 		t.Fatalf("expected record: %v", scanner.Err())
 	}
@@ -503,7 +503,7 @@ func zstdFrameWithoutChecksum(t *testing.T, data []byte) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer enc.Close()
+	defer closeTest(t, enc)
 	out := enc.EncodeAll(data, nil)
 	if len(out) < 5 {
 		t.Fatalf("short zstd frame: %d bytes", len(out))
@@ -542,7 +542,7 @@ func zstdFrameWithDict(t *testing.T, data, dict []byte) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer enc.Close()
+	defer closeTest(t, enc)
 	return enc.EncodeAll(data, nil)
 }
 
@@ -556,7 +556,7 @@ func zstdFrameWithDictWithoutFCS(t *testing.T, data, dict []byte) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer enc.Close()
+	defer closeTest(t, enc)
 	out := enc.EncodeAll(data, nil)
 	out, err = zstdFrameWithoutContentSize(out)
 	if err != nil {

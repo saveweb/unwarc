@@ -12,6 +12,8 @@ import (
 func FuzzScannerInputs(f *testing.F) {
 	f.Add([]byte{})
 	f.Add([]byte("WARC/1.1\r\nContent-Length: 0\r\n\r\n\r\n\r\n"))
+	f.Add([]byte("WARC/1.1\r\nX-Archive-Note: first\r\n second:with:colons\r\nContent-Length: 0\r\n\r\n\r\n\r\n"))
+	f.Add([]byte("what: The Yeomen of\r\n       the Guard\r\nduck:\r\n      quack\r\n\r\n"))
 	f.Add(makeRecord("response", "<urn:uuid:fuzz-record>", []byte("payload")))
 
 	zw, err := zstd.NewWriter(nil, zstd.WithEncoderCRC(true), zstd.WithSingleSegment(true))
@@ -19,10 +21,15 @@ func FuzzScannerInputs(f *testing.F) {
 		f.Fatal(err)
 	}
 	f.Add(zw.EncodeAll(makeRecord("warcinfo", "<urn:uuid:fuzz-zstd>", []byte("zstd")), nil))
-	zw.Close()
+	if err := zw.Close(); err != nil {
+		f.Fatal(err)
+	}
 
 	f.Fuzz(func(t *testing.T, data []byte) {
-		_, _, _ = parseHeaderBlock(data)
+		_, _, _ = parseRecordHeader(data)
+		_, _, _ = parseRecordHeaderWithOptions(data, FoldedFieldReject)
+		_, _ = ParseWARCFields(data, WARCFieldsOptions{})
+		_, _ = ParseWARCFields(data, WARCFieldsOptions{FoldedFields: FoldedFieldReject})
 		_, _ = NewRecordFromBytes(data)
 
 		scanner, err := NewScanner(bytes.NewReader(data), ScannerOptions{Compression: CompressionPlain})

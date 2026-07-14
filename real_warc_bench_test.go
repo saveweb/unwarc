@@ -46,7 +46,7 @@ func benchmarkStreamPayload(tb testing.TB, path string) (int, int64) {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	defer f.Close()
+	defer closeTest(tb, f)
 
 	scanner, err := NewScanner(f, ScannerOptions{
 		Compression: CompressionUnknown,
@@ -79,7 +79,7 @@ func benchmarkSourceScanThenLazyReopenPayload(tb testing.TB, path string) (int, 
 	if err != nil {
 		tb.Fatal(err)
 	}
-	defer scanner.Close()
+	defer closeTest(tb, scanner)
 
 	var records int
 	var bytes int64
@@ -108,7 +108,7 @@ func benchmarkSourceScanThenLazyReopenPayload(tb testing.TB, path string) (int, 
 
 func drainPayloads(tb testing.TB, scanner *Scanner) (int, int64) {
 	tb.Helper()
-	defer scanner.Close()
+	defer closeTest(tb, scanner)
 
 	var records int
 	var bytes int64

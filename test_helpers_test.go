@@ -12,13 +12,20 @@ func newBytesSource(data []byte) ReaderAtSource {
 	})
 }
 
+func closeTest(tb testing.TB, closer io.Closer) {
+	tb.Helper()
+	if err := closer.Close(); err != nil {
+		tb.Errorf("close: %v", err)
+	}
+}
+
 func scanSourceRefs(t *testing.T, source RandomAccessSource, compression Compression) []*RecordRef {
 	t.Helper()
 	scanner, err := NewScannerFromSource(source, ScannerOptions{Compression: compression})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer scanner.Close()
+	defer closeTest(t, scanner)
 	return collectScannerRefs(t, scanner)
 }
 
@@ -40,7 +47,7 @@ func readAllFrom(t *testing.T, open func() (io.ReadCloser, error)) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rc.Close()
+	defer closeTest(t, rc)
 
 	data, err := io.ReadAll(rc)
 	if err != nil {

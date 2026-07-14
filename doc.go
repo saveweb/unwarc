@@ -14,12 +14,19 @@
 // Frame_Content_Size or beyond ScannerOptions.MaxBufferedZstdFrameSize are
 // decoded with a streaming fallback.
 //
+// WARC 1.0/1.1 folded named fields are accepted and unfolded by default in
+// record headers and ParseWARCFields. WARCField.Folded reports their presence,
+// while the relevant options can reject them when required.
+//
 // OpenWARCZstdSeekIndex supports an optional record-local WARC-zstd seek
 // profile. It walks backward through seekable-table skippable frames and builds
-// finalized references by decoding only WARC header frames; payload frames are
-// reopened lazily by range when needed.
+// finalized references by decoding only WARC record-header frames; payload
+// frames are reopened lazily by range when needed.
 //
-// Strict mode keeps normal WARC parsing permissive except for malformed record
-// trailers, and additionally enforces WARC-zstd frame requirements such as
-// Frame_Content_Size, Content_Checksum, and one logical record per zstd frame.
+// WARC version lines, header CRLF framing, and named-field syntax are parsed
+// strictly by default. ScannerOptions.Resynchronize can explicitly permit extra
+// CRLF lines at record boundaries. Strict mode additionally upgrades malformed
+// record trailers and WARC-zstd layout violations, including missing
+// Frame_Content_Size or Content_Checksum and multiple logical records in one
+// frame, to fatal errors.
 package unwarc

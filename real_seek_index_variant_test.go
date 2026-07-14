@@ -330,12 +330,14 @@ func realSeekVariantPaths(gzipPath string) seekVariantPaths {
 	}
 }
 
-func writeRealSeekVariant(gzipPath, outPath string, payloadChunkSize int64, httpSplit bool) (seekVariantStats, error) {
+func writeRealSeekVariant(gzipPath, outPath string, payloadChunkSize int64, httpSplit bool) (stats seekVariantStats, err error) {
 	in, err := os.Open(gzipPath)
 	if err != nil {
 		return seekVariantStats{}, err
 	}
-	defer in.Close()
+	defer func() {
+		err = errors.Join(err, in.Close())
+	}()
 
 	scanner, err := NewScanner(in, ScannerOptions{
 		Compression: CompressionUnknown,
@@ -344,13 +346,15 @@ func writeRealSeekVariant(gzipPath, outPath string, payloadChunkSize int64, http
 	if err != nil {
 		return seekVariantStats{}, err
 	}
-	defer scanner.Close()
+	defer func() {
+		err = errors.Join(err, scanner.Close())
+	}()
 
 	out, tmpPath, err := createVariantTemp(outPath)
 	if err != nil {
 		return seekVariantStats{}, err
 	}
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	enc, err := zstd.NewWriter(nil,
 		zstd.WithEncoderCRC(true),
@@ -361,9 +365,11 @@ func writeRealSeekVariant(gzipPath, outPath string, payloadChunkSize int64, http
 		_ = out.Close()
 		return seekVariantStats{}, err
 	}
-	defer enc.Close()
+	defer func() {
+		err = errors.Join(err, enc.Close())
+	}()
 
-	stats, err := writeSeekIndexedRecords(scanner, out, enc, payloadChunkSize, httpSplit)
+	stats, err = writeSeekIndexedRecords(scanner, out, enc, payloadChunkSize, httpSplit)
 	if closeErr := out.Close(); err == nil {
 		err = closeErr
 	}

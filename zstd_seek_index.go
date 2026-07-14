@@ -2,6 +2,7 @@ package unwarc
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -9,12 +10,21 @@ import (
 
 // WARCZstdSeekIndex is a reverse-built index for the record-local WARC-zstd
 // seek profile. Each indexed record is encoded as a zstd frame for the WARC
-// header, one or more zstd frames for payload bytes plus the record trailer,
-// and a zstd seekable-table skippable frame describing those data frames. Empty
-// records may instead use a single zstd frame containing the WARC header and
-// trailer.
+// record header, one or more zstd frames for payload bytes plus the record
+// trailer, and a zstd seekable-table skippable frame describing those data
+// frames. Empty records may instead use a single zstd frame containing the
+// WARC record header and trailer.
 type WARCZstdSeekIndex struct {
 	records []*RecordRef
+}
+
+// WARCZstdSeekIndexOptions configures record-header parsing while building a
+// record-local WARC-zstd seek index.
+type WARCZstdSeekIndexOptions struct {
+	// FoldedFields controls named-field continuation lines within record
+	// headers. The zero value accepts and unfolds them for WARC 1.0/1.1
+	// compatibility.
+	FoldedFields FoldedFieldPolicy
 }
 
 // OpenWARCZstdSeekIndex opens a WARC-zstd input that is fully composed of
@@ -22,6 +32,12 @@ type WARCZstdSeekIndex struct {
 // decoding payload frames. If any suffix does not match the profile, it returns
 // ErrNotSeekIndexed so callers can choose a normal forward scan instead.
 func OpenWARCZstdSeekIndex(source RandomAccessSource) (*WARCZstdSeekIndex, error) {
+	return OpenWARCZstdSeekIndexWithOptions(source, WARCZstdSeekIndexOptions{})
+}
+
+// OpenWARCZstdSeekIndexWithOptions is OpenWARCZstdSeekIndex with explicit
+// WARC record-header parsing options.
+func OpenWARCZstdSeekIndexWithOptions(source RandomAccessSource, opts WARCZstdSeekIndexOptions) (*WARCZstdSeekIndex, error) {
 	size, err := source.Size()
 	if err != nil {
 		return nil, err
@@ -37,7 +53,7 @@ func OpenWARCZstdSeekIndex(source RandomAccessSource) (*WARCZstdSeekIndex, error
 
 	var reversed []seekIndexedRecord
 	for end := size; end > 0; {
-		record, err := readSeekIndexedRecord(indexSource, source, end)
+		record, err := readSeekIndexedRecord(indexSource, source, end, opts.FoldedFields)
 		if err != nil {
 			return nil, err
 		}
@@ -90,16 +106,16 @@ type zstdSeekEntry struct {
 	uncompSize uint32
 }
 
-func readSeekIndexedRecord(indexSource, refSource RandomAccessSource, end int64) (seekIndexedRecord, error) {
+func readSeekIndexedRecord(indexSource, refSource RandomAccessSource, end int64, foldedFields FoldedFieldPolicy) (seekIndexedRecord, error) {
 	entries, table, err := readRecordLocalSeekTable(indexSource, end)
 	if err != nil {
 		return seekIndexedRecord{}, err
 	}
 	if len(entries) == 1 {
-		return readSeekIndexedEmptyRecord(indexSource, refSource, entries[0], table)
+		return readSeekIndexedEmptyRecord(indexSource, refSource, entries[0], table, foldedFields)
 	}
-	headerEntry := entries[0]
-	if headerEntry.compSize == 0 || headerEntry.uncompSize == 0 {
+	recordHeaderEntry := entries[0]
+	if recordHeaderEntry.compSize == 0 || recordHeaderEntry.uncompSize == 0 {
 		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: empty seek table entry", ErrNotSeekIndexed, table.Off)
 	}
 
@@ -114,21 +130,21 @@ func readSeekIndexedRecord(indexSource, refSource RandomAccessSource, end int64)
 	}
 
 	payloadStart := table.Off - payloadCompSize
-	headerComp := Range{
-		Off:  payloadStart - int64(headerEntry.compSize),
-		Size: int64(headerEntry.compSize),
+	recordHeaderComp := Range{
+		Off:  payloadStart - int64(recordHeaderEntry.compSize),
+		Size: int64(recordHeaderEntry.compSize),
 	}
-	if headerComp.Off < 0 || payloadStart < 0 {
+	if recordHeaderComp.Off < 0 || payloadStart < 0 {
 		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: seek table ranges before file start", ErrNotSeekIndexed, table.Off)
 	}
 
-	rawHeader, err := decodeSeekIndexedHeader(indexSource, headerComp, int64(headerEntry.uncompSize))
+	rawRecordHeader, err := decodeSeekIndexedRecordHeader(indexSource, recordHeaderComp, int64(recordHeaderEntry.uncompSize))
 	if err != nil {
 		return seekIndexedRecord{}, err
 	}
-	header, contentLength, err := parseHeaderBlock(rawHeader)
+	header, contentLength, err := parseRecordHeaderWithOptions(rawRecordHeader, foldedFields)
 	if err != nil {
-		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: invalid WARC header: %v", ErrNotSeekIndexed, headerComp.Off, err)
+		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: invalid WARC record header: %w", ErrNotSeekIndexed, recordHeaderComp.Off, err)
 	}
 	payloadRanges, payloadFrames := indexedPayloadRanges(entries[1:], payloadStart, contentLength)
 	trailerLen := payloadUncompSize - contentLength
@@ -136,16 +152,16 @@ func readSeekIndexedRecord(indexSource, refSource RandomAccessSource, end int64)
 		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: payload frames are shorter than Content-Length", ErrNotSeekIndexed, payloadStart)
 	}
 
-	recordComp := Range{Off: headerComp.Off, Size: table.End() - headerComp.Off}
-	recordUncompSize := int64(headerEntry.uncompSize) + payloadUncompSize
+	recordComp := Range{Off: recordHeaderComp.Off, Size: table.End() - recordHeaderComp.Off}
+	recordUncompSize := int64(recordHeaderEntry.uncompSize) + payloadUncompSize
 	compRanges := make([]Range, 0, len(payloadRanges)+1)
-	compRanges = append(compRanges, headerComp)
+	compRanges = append(compRanges, recordHeaderComp)
 	compRanges = append(compRanges, payloadRanges...)
 	ref := &RecordRef{
 		Header:        header,
-		RawHeader:     rawHeader,
+		RawHeader:     rawRecordHeader,
 		ContentLength: contentLength,
-		HeaderLen:     int64(len(rawHeader)),
+		HeaderLen:     int64(len(rawRecordHeader)),
 		TrailerLen:    trailerLen,
 		Location: RecordLocation{
 			Uncomp:            Range{Off: 0, Size: recordUncompSize},
@@ -165,7 +181,7 @@ func readSeekIndexedRecord(indexSource, refSource RandomAccessSource, end int64)
 	}, nil
 }
 
-func readSeekIndexedEmptyRecord(indexSource, refSource RandomAccessSource, entry zstdSeekEntry, table Range) (seekIndexedRecord, error) {
+func readSeekIndexedEmptyRecord(indexSource, refSource RandomAccessSource, entry zstdSeekEntry, table Range, foldedFields FoldedFieldPolicy) (seekIndexedRecord, error) {
 	if entry.compSize == 0 || entry.uncompSize == 0 {
 		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: empty seek table entry", ErrNotSeekIndexed, table.Off)
 	}
@@ -177,13 +193,13 @@ func readSeekIndexedEmptyRecord(indexSource, refSource RandomAccessSource, entry
 		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: seek table ranges before file start", ErrNotSeekIndexed, table.Off)
 	}
 
-	rawHeader, trailerLen, err := decodeSeekIndexedEmptyRecord(indexSource, recordComp, int64(entry.uncompSize))
+	rawRecordHeader, trailerLen, err := decodeSeekIndexedEmptyRecord(indexSource, recordComp, int64(entry.uncompSize))
 	if err != nil {
 		return seekIndexedRecord{}, err
 	}
-	header, contentLength, err := parseHeaderBlock(rawHeader)
+	header, contentLength, err := parseRecordHeaderWithOptions(rawRecordHeader, foldedFields)
 	if err != nil {
-		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: invalid WARC header: %v", ErrNotSeekIndexed, recordComp.Off, err)
+		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: invalid WARC record header: %w", ErrNotSeekIndexed, recordComp.Off, err)
 	}
 	if contentLength != 0 {
 		return seekIndexedRecord{}, fmt.Errorf("%w at offset %d: single-frame seek record has Content-Length %d", ErrNotSeekIndexed, recordComp.Off, contentLength)
@@ -191,9 +207,9 @@ func readSeekIndexedEmptyRecord(indexSource, refSource RandomAccessSource, entry
 
 	ref := &RecordRef{
 		Header:        header,
-		RawHeader:     rawHeader,
+		RawHeader:     rawRecordHeader,
 		ContentLength: 0,
-		HeaderLen:     int64(len(rawHeader)),
+		HeaderLen:     int64(len(rawRecordHeader)),
 		TrailerLen:    trailerLen,
 		Location: RecordLocation{
 			Uncomp:     Range{Off: 0, Size: int64(entry.uncompSize)},
@@ -211,7 +227,7 @@ func readSeekIndexedEmptyRecord(indexSource, refSource RandomAccessSource, entry
 	}, nil
 }
 
-func decodeSeekIndexedHeader(source RandomAccessSource, rr Range, wantSize int64) ([]byte, error) {
+func decodeSeekIndexedRecordHeader(source RandomAccessSource, rr Range, wantSize int64) (rawHeader []byte, err error) {
 	rc, err := source.OpenRange(rr.Off, rr.Size)
 	if err != nil {
 		return nil, err
@@ -221,19 +237,21 @@ func decodeSeekIndexedHeader(source RandomAccessSource, rr Range, wantSize int64
 		_ = rc.Close()
 		return nil, err
 	}
-	defer decoded.Close()
+	defer func() {
+		err = errors.Join(err, decoded.Close())
+	}()
 
-	rawHeader, err := readWARCHeader(decoded)
+	rawHeader, err = readRecordHeader(decoded, false)
 	if err != nil {
-		return nil, fmt.Errorf("%w at offset %d: header frame does not contain a complete WARC header: %v", ErrNotSeekIndexed, rr.Off, err)
+		return nil, fmt.Errorf("%w at offset %d: record-header frame does not contain a complete WARC record header: %v", ErrNotSeekIndexed, rr.Off, err)
 	}
 	if int64(len(rawHeader)) != wantSize {
-		return nil, fmt.Errorf("%w at offset %d: header frame is not exactly the WARC header boundary; decoded header is %d bytes, frame is %d bytes", ErrNotSeekIndexed, rr.Off, len(rawHeader), wantSize)
+		return nil, fmt.Errorf("%w at offset %d: record-header frame does not end at the WARC record-header boundary; decoded header is %d bytes, frame is %d bytes", ErrNotSeekIndexed, rr.Off, len(rawHeader), wantSize)
 	}
 	var extra [1]byte
 	n, err := decoded.Read(extra[:])
 	if n > 0 {
-		return nil, fmt.Errorf("%w at offset %d: header frame contains bytes after the WARC header", ErrNotSeekIndexed, rr.Off)
+		return nil, fmt.Errorf("%w at offset %d: record-header frame contains bytes after the WARC record header", ErrNotSeekIndexed, rr.Off)
 	}
 	if err != nil && err != io.EOF {
 		return nil, err
@@ -241,7 +259,7 @@ func decodeSeekIndexedHeader(source RandomAccessSource, rr Range, wantSize int64
 	return rawHeader, nil
 }
 
-func decodeSeekIndexedEmptyRecord(source RandomAccessSource, rr Range, wantSize int64) ([]byte, int64, error) {
+func decodeSeekIndexedEmptyRecord(source RandomAccessSource, rr Range, wantSize int64) (rawHeader []byte, trailerLen int64, err error) {
 	rc, err := source.OpenRange(rr.Off, rr.Size)
 	if err != nil {
 		return nil, 0, err
@@ -251,9 +269,11 @@ func decodeSeekIndexedEmptyRecord(source RandomAccessSource, rr Range, wantSize 
 		_ = rc.Close()
 		return nil, 0, err
 	}
-	defer decoded.Close()
+	defer func() {
+		err = errors.Join(err, decoded.Close())
+	}()
 
-	rawHeader, err := readWARCHeader(decoded)
+	rawHeader, err = readRecordHeader(decoded, false)
 	if err != nil {
 		return nil, 0, fmt.Errorf("%w at offset %d: single-frame empty record does not contain a complete WARC header: %v", ErrNotSeekIndexed, rr.Off, err)
 	}
@@ -281,7 +301,7 @@ func decodeSeekIndexedEmptyRecord(source RandomAccessSource, rr Range, wantSize 
 func indexedPayloadRanges(entries []zstdSeekEntry, compStart, contentLength int64) ([]Range, []RecordPayloadFrame) {
 	ranges := make([]Range, 0, len(entries))
 	frames := make([]RecordPayloadFrame, 0, len(entries))
-	var compOff int64 = compStart
+	compOff := compStart
 	var payloadOff int64
 	for _, entry := range entries {
 		comp := Range{Off: compOff, Size: int64(entry.compSize)}
@@ -367,9 +387,8 @@ func readSourceRange(source RandomAccessSource, off, size int64) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	defer rc.Close()
-	data, err := io.ReadAll(rc)
-	if err != nil {
+	data, readErr := io.ReadAll(rc)
+	if err := errors.Join(readErr, rc.Close()); err != nil {
 		return nil, err
 	}
 	if int64(len(data)) != size {
