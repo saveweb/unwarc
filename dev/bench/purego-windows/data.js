@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784054461335,
+  "lastUpdate": 1784059894476,
   "repoUrl": "https://github.com/saveweb/unwarc",
   "entries": {
     "unwarc corpus benchmark purego windows": [
@@ -3174,6 +3174,3180 @@ window.BENCHMARK_DATA = {
             "value": 1660,
             "unit": "allocs/op",
             "extra": "177 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yzqzss@saveweb.org",
+            "name": "yzqzss",
+            "username": "yzqzss"
+          },
+          "committer": {
+            "email": "yzqzss@saveweb.org",
+            "name": "yzqzss",
+            "username": "yzqzss"
+          },
+          "distinct": true,
+          "id": "8082e6a3446f1fce1041c8ff9de37a2e89e9e88c",
+          "message": "Test generic Zstd skippable frame layouts",
+          "timestamp": "2026-07-14T22:02:29+02:00",
+          "tree_id": "788992199218f3310d1a6cbff8da433efffdc718",
+          "url": "https://github.com/saveweb/unwarc/commit/8082e6a3446f1fce1041c8ff9de37a2e89e9e88c"
+        },
+        "date": 1784059893865,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block",
+            "value": 309485,
+            "unit": "ns/op\t  71.35 MB/s\t     22083 block_bytes\t         3.000 records\t  132480 B/op\t     194 allocs/op",
+            "extra": "3434 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - ns/op",
+            "value": 309485,
+            "unit": "ns/op",
+            "extra": "3434 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - MB/s",
+            "value": 71.35,
+            "unit": "MB/s",
+            "extra": "3434 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "3434 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "3434 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - B/op",
+            "value": 132480,
+            "unit": "B/op",
+            "extra": "3434 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - allocs/op",
+            "value": 194,
+            "unit": "allocs/op",
+            "extra": "3434 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block",
+            "value": 297361,
+            "unit": "ns/op\t  74.26 MB/s\t     22083 block_bytes\t         3.000 records\t  132470 B/op\t     194 allocs/op",
+            "extra": "4228 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - ns/op",
+            "value": 297361,
+            "unit": "ns/op",
+            "extra": "4228 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - MB/s",
+            "value": 74.26,
+            "unit": "MB/s",
+            "extra": "4228 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "4228 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "4228 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - B/op",
+            "value": 132470,
+            "unit": "B/op",
+            "extra": "4228 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - allocs/op",
+            "value": 194,
+            "unit": "allocs/op",
+            "extra": "4228 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block",
+            "value": 296721,
+            "unit": "ns/op\t  74.42 MB/s\t     22083 block_bytes\t         3.000 records\t  132486 B/op\t     194 allocs/op",
+            "extra": "4100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - ns/op",
+            "value": 296721,
+            "unit": "ns/op",
+            "extra": "4100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - MB/s",
+            "value": 74.42,
+            "unit": "MB/s",
+            "extra": "4100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "4100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "4100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - B/op",
+            "value": 132486,
+            "unit": "B/op",
+            "extra": "4100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - allocs/op",
+            "value": 194,
+            "unit": "allocs/op",
+            "extra": "4100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block",
+            "value": 296077,
+            "unit": "ns/op\t  74.59 MB/s\t     22083 block_bytes\t         3.000 records\t  132462 B/op\t     194 allocs/op",
+            "extra": "4146 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - ns/op",
+            "value": 296077,
+            "unit": "ns/op",
+            "extra": "4146 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - MB/s",
+            "value": 74.59,
+            "unit": "MB/s",
+            "extra": "4146 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "4146 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "4146 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - B/op",
+            "value": 132462,
+            "unit": "B/op",
+            "extra": "4146 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - allocs/op",
+            "value": 194,
+            "unit": "allocs/op",
+            "extra": "4146 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block",
+            "value": 297014,
+            "unit": "ns/op\t  74.35 MB/s\t     22083 block_bytes\t         3.000 records\t  132498 B/op\t     194 allocs/op",
+            "extra": "4358 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - ns/op",
+            "value": 297014,
+            "unit": "ns/op",
+            "extra": "4358 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - MB/s",
+            "value": 74.35,
+            "unit": "MB/s",
+            "extra": "4358 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "4358 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "4358 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - B/op",
+            "value": 132498,
+            "unit": "B/op",
+            "extra": "4358 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - allocs/op",
+            "value": 194,
+            "unit": "allocs/op",
+            "extra": "4358 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block",
+            "value": 297814,
+            "unit": "ns/op\t  74.15 MB/s\t     22083 block_bytes\t         3.000 records\t  132605 B/op\t     197 allocs/op",
+            "extra": "4220 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - ns/op",
+            "value": 297814,
+            "unit": "ns/op",
+            "extra": "4220 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - MB/s",
+            "value": 74.15,
+            "unit": "MB/s",
+            "extra": "4220 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "4220 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "4220 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - B/op",
+            "value": 132605,
+            "unit": "B/op",
+            "extra": "4220 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - allocs/op",
+            "value": 197,
+            "unit": "allocs/op",
+            "extra": "4220 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block",
+            "value": 293992,
+            "unit": "ns/op\t  75.11 MB/s\t     22083 block_bytes\t         3.000 records\t  132598 B/op\t     197 allocs/op",
+            "extra": "4050 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - ns/op",
+            "value": 293992,
+            "unit": "ns/op",
+            "extra": "4050 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - MB/s",
+            "value": 75.11,
+            "unit": "MB/s",
+            "extra": "4050 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "4050 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "4050 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - B/op",
+            "value": 132598,
+            "unit": "B/op",
+            "extra": "4050 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - allocs/op",
+            "value": 197,
+            "unit": "allocs/op",
+            "extra": "4050 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block",
+            "value": 291494,
+            "unit": "ns/op\t  75.76 MB/s\t     22083 block_bytes\t         3.000 records\t  132548 B/op\t     197 allocs/op",
+            "extra": "4191 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - ns/op",
+            "value": 291494,
+            "unit": "ns/op",
+            "extra": "4191 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - MB/s",
+            "value": 75.76,
+            "unit": "MB/s",
+            "extra": "4191 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "4191 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "4191 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - B/op",
+            "value": 132548,
+            "unit": "B/op",
+            "extra": "4191 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - allocs/op",
+            "value": 197,
+            "unit": "allocs/op",
+            "extra": "4191 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block",
+            "value": 294946,
+            "unit": "ns/op\t  74.87 MB/s\t     22083 block_bytes\t         3.000 records\t  132549 B/op\t     197 allocs/op",
+            "extra": "4310 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - ns/op",
+            "value": 294946,
+            "unit": "ns/op",
+            "extra": "4310 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - MB/s",
+            "value": 74.87,
+            "unit": "MB/s",
+            "extra": "4310 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "4310 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "4310 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - B/op",
+            "value": 132549,
+            "unit": "B/op",
+            "extra": "4310 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - allocs/op",
+            "value": 197,
+            "unit": "allocs/op",
+            "extra": "4310 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block",
+            "value": 289426,
+            "unit": "ns/op\t  76.30 MB/s\t     22083 block_bytes\t         3.000 records\t  132558 B/op\t     197 allocs/op",
+            "extra": "4196 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - ns/op",
+            "value": 289426,
+            "unit": "ns/op",
+            "extra": "4196 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - MB/s",
+            "value": 76.3,
+            "unit": "MB/s",
+            "extra": "4196 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "4196 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "4196 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - B/op",
+            "value": 132558,
+            "unit": "B/op",
+            "extra": "4196 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - allocs/op",
+            "value": 197,
+            "unit": "allocs/op",
+            "extra": "4196 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block",
+            "value": 583503,
+            "unit": "ns/op\t  37.85 MB/s\t     22083 block_bytes\t         3.000 records\t  263275 B/op\t     266 allocs/op",
+            "extra": "2011 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 583503,
+            "unit": "ns/op",
+            "extra": "2011 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 37.85,
+            "unit": "MB/s",
+            "extra": "2011 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "2011 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "2011 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - B/op",
+            "value": 263275,
+            "unit": "B/op",
+            "extra": "2011 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 266,
+            "unit": "allocs/op",
+            "extra": "2011 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block",
+            "value": 575827,
+            "unit": "ns/op\t  38.35 MB/s\t     22083 block_bytes\t         3.000 records\t  263240 B/op\t     266 allocs/op",
+            "extra": "2020 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 575827,
+            "unit": "ns/op",
+            "extra": "2020 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 38.35,
+            "unit": "MB/s",
+            "extra": "2020 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "2020 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "2020 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - B/op",
+            "value": 263240,
+            "unit": "B/op",
+            "extra": "2020 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 266,
+            "unit": "allocs/op",
+            "extra": "2020 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block",
+            "value": 586051,
+            "unit": "ns/op\t  37.68 MB/s\t     22083 block_bytes\t         3.000 records\t  263282 B/op\t     266 allocs/op",
+            "extra": "2124 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 586051,
+            "unit": "ns/op",
+            "extra": "2124 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 37.68,
+            "unit": "MB/s",
+            "extra": "2124 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "2124 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "2124 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - B/op",
+            "value": 263282,
+            "unit": "B/op",
+            "extra": "2124 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 266,
+            "unit": "allocs/op",
+            "extra": "2124 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block",
+            "value": 598351,
+            "unit": "ns/op\t  36.91 MB/s\t     22083 block_bytes\t         3.000 records\t  263326 B/op\t     266 allocs/op",
+            "extra": "2073 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 598351,
+            "unit": "ns/op",
+            "extra": "2073 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 36.91,
+            "unit": "MB/s",
+            "extra": "2073 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "2073 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "2073 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - B/op",
+            "value": 263326,
+            "unit": "B/op",
+            "extra": "2073 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 266,
+            "unit": "allocs/op",
+            "extra": "2073 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block",
+            "value": 626032,
+            "unit": "ns/op\t  35.27 MB/s\t     22083 block_bytes\t         3.000 records\t  263267 B/op\t     266 allocs/op",
+            "extra": "2078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 626032,
+            "unit": "ns/op",
+            "extra": "2078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 35.27,
+            "unit": "MB/s",
+            "extra": "2078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 22083,
+            "unit": "block_bytes",
+            "extra": "2078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "2078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - B/op",
+            "value": 263267,
+            "unit": "B/op",
+            "extra": "2078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 266,
+            "unit": "allocs/op",
+            "extra": "2078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block",
+            "value": 213290,
+            "unit": "ns/op\t  19.98 MB/s\t      4261 block_bytes\t        10.00 records\t   76662 B/op\t     517 allocs/op",
+            "extra": "5466 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - ns/op",
+            "value": 213290,
+            "unit": "ns/op",
+            "extra": "5466 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - MB/s",
+            "value": 19.98,
+            "unit": "MB/s",
+            "extra": "5466 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "5466 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "5466 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - B/op",
+            "value": 76662,
+            "unit": "B/op",
+            "extra": "5466 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - allocs/op",
+            "value": 517,
+            "unit": "allocs/op",
+            "extra": "5466 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block",
+            "value": 213837,
+            "unit": "ns/op\t  19.93 MB/s\t      4261 block_bytes\t        10.00 records\t   76692 B/op\t     517 allocs/op",
+            "extra": "5133 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - ns/op",
+            "value": 213837,
+            "unit": "ns/op",
+            "extra": "5133 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - MB/s",
+            "value": 19.93,
+            "unit": "MB/s",
+            "extra": "5133 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "5133 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "5133 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - B/op",
+            "value": 76692,
+            "unit": "B/op",
+            "extra": "5133 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - allocs/op",
+            "value": 517,
+            "unit": "allocs/op",
+            "extra": "5133 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block",
+            "value": 218939,
+            "unit": "ns/op\t  19.46 MB/s\t      4261 block_bytes\t        10.00 records\t   76688 B/op\t     517 allocs/op",
+            "extra": "6284 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - ns/op",
+            "value": 218939,
+            "unit": "ns/op",
+            "extra": "6284 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - MB/s",
+            "value": 19.46,
+            "unit": "MB/s",
+            "extra": "6284 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "6284 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "6284 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - B/op",
+            "value": 76688,
+            "unit": "B/op",
+            "extra": "6284 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - allocs/op",
+            "value": 517,
+            "unit": "allocs/op",
+            "extra": "6284 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block",
+            "value": 221663,
+            "unit": "ns/op\t  19.22 MB/s\t      4261 block_bytes\t        10.00 records\t   76665 B/op\t     517 allocs/op",
+            "extra": "5996 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - ns/op",
+            "value": 221663,
+            "unit": "ns/op",
+            "extra": "5996 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - MB/s",
+            "value": 19.22,
+            "unit": "MB/s",
+            "extra": "5996 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "5996 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "5996 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - B/op",
+            "value": 76665,
+            "unit": "B/op",
+            "extra": "5996 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - allocs/op",
+            "value": 517,
+            "unit": "allocs/op",
+            "extra": "5996 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block",
+            "value": 223204,
+            "unit": "ns/op\t  19.09 MB/s\t      4261 block_bytes\t        10.00 records\t   76700 B/op\t     517 allocs/op",
+            "extra": "6000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - ns/op",
+            "value": 223204,
+            "unit": "ns/op",
+            "extra": "6000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - MB/s",
+            "value": 19.09,
+            "unit": "MB/s",
+            "extra": "6000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "6000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "6000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - B/op",
+            "value": 76700,
+            "unit": "B/op",
+            "extra": "6000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - allocs/op",
+            "value": 517,
+            "unit": "allocs/op",
+            "extra": "6000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block",
+            "value": 210116,
+            "unit": "ns/op\t  20.28 MB/s\t      4261 block_bytes\t        10.00 records\t   77216 B/op\t     534 allocs/op",
+            "extra": "5973 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - ns/op",
+            "value": 210116,
+            "unit": "ns/op",
+            "extra": "5973 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - MB/s",
+            "value": 20.28,
+            "unit": "MB/s",
+            "extra": "5973 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "5973 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "5973 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - B/op",
+            "value": 77216,
+            "unit": "B/op",
+            "extra": "5973 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - allocs/op",
+            "value": 534,
+            "unit": "allocs/op",
+            "extra": "5973 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block",
+            "value": 217138,
+            "unit": "ns/op\t  19.62 MB/s\t      4261 block_bytes\t        10.00 records\t   77221 B/op\t     534 allocs/op",
+            "extra": "6026 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - ns/op",
+            "value": 217138,
+            "unit": "ns/op",
+            "extra": "6026 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - MB/s",
+            "value": 19.62,
+            "unit": "MB/s",
+            "extra": "6026 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "6026 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "6026 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - B/op",
+            "value": 77221,
+            "unit": "B/op",
+            "extra": "6026 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - allocs/op",
+            "value": 534,
+            "unit": "allocs/op",
+            "extra": "6026 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block",
+            "value": 220466,
+            "unit": "ns/op\t  19.33 MB/s\t      4261 block_bytes\t        10.00 records\t   77196 B/op\t     534 allocs/op",
+            "extra": "5511 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - ns/op",
+            "value": 220466,
+            "unit": "ns/op",
+            "extra": "5511 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - MB/s",
+            "value": 19.33,
+            "unit": "MB/s",
+            "extra": "5511 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "5511 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "5511 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - B/op",
+            "value": 77196,
+            "unit": "B/op",
+            "extra": "5511 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - allocs/op",
+            "value": 534,
+            "unit": "allocs/op",
+            "extra": "5511 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block",
+            "value": 221461,
+            "unit": "ns/op\t  19.24 MB/s\t      4261 block_bytes\t        10.00 records\t   77228 B/op\t     534 allocs/op",
+            "extra": "6112 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - ns/op",
+            "value": 221461,
+            "unit": "ns/op",
+            "extra": "6112 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - MB/s",
+            "value": 19.24,
+            "unit": "MB/s",
+            "extra": "6112 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "6112 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "6112 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - B/op",
+            "value": 77228,
+            "unit": "B/op",
+            "extra": "6112 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - allocs/op",
+            "value": 534,
+            "unit": "allocs/op",
+            "extra": "6112 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block",
+            "value": 214536,
+            "unit": "ns/op\t  19.86 MB/s\t      4261 block_bytes\t        10.00 records\t   77221 B/op\t     534 allocs/op",
+            "extra": "5868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - ns/op",
+            "value": 214536,
+            "unit": "ns/op",
+            "extra": "5868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - MB/s",
+            "value": 19.86,
+            "unit": "MB/s",
+            "extra": "5868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "5868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "5868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - B/op",
+            "value": 77221,
+            "unit": "B/op",
+            "extra": "5868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - allocs/op",
+            "value": 534,
+            "unit": "allocs/op",
+            "extra": "5868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block",
+            "value": 1119596,
+            "unit": "ns/op\t   3.81 MB/s\t      4261 block_bytes\t        10.00 records\t  514100 B/op\t     795 allocs/op",
+            "extra": "1044 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 1119596,
+            "unit": "ns/op",
+            "extra": "1044 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 3.81,
+            "unit": "MB/s",
+            "extra": "1044 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "1044 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "1044 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - B/op",
+            "value": 514100,
+            "unit": "B/op",
+            "extra": "1044 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 795,
+            "unit": "allocs/op",
+            "extra": "1044 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block",
+            "value": 1115228,
+            "unit": "ns/op\t   3.82 MB/s\t      4261 block_bytes\t        10.00 records\t  513994 B/op\t     795 allocs/op",
+            "extra": "1125 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 1115228,
+            "unit": "ns/op",
+            "extra": "1125 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 3.82,
+            "unit": "MB/s",
+            "extra": "1125 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "1125 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "1125 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - B/op",
+            "value": 513994,
+            "unit": "B/op",
+            "extra": "1125 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 795,
+            "unit": "allocs/op",
+            "extra": "1125 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block",
+            "value": 1020949,
+            "unit": "ns/op\t   4.17 MB/s\t      4261 block_bytes\t        10.00 records\t  514045 B/op\t     795 allocs/op",
+            "extra": "1208 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 1020949,
+            "unit": "ns/op",
+            "extra": "1208 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 4.17,
+            "unit": "MB/s",
+            "extra": "1208 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "1208 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "1208 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - B/op",
+            "value": 514045,
+            "unit": "B/op",
+            "extra": "1208 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 795,
+            "unit": "allocs/op",
+            "extra": "1208 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block",
+            "value": 1071901,
+            "unit": "ns/op\t   3.98 MB/s\t      4261 block_bytes\t        10.00 records\t  514044 B/op\t     795 allocs/op",
+            "extra": "1144 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 1071901,
+            "unit": "ns/op",
+            "extra": "1144 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 3.98,
+            "unit": "MB/s",
+            "extra": "1144 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "1144 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "1144 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - B/op",
+            "value": 514044,
+            "unit": "B/op",
+            "extra": "1144 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 795,
+            "unit": "allocs/op",
+            "extra": "1144 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block",
+            "value": 990965,
+            "unit": "ns/op\t   4.30 MB/s\t      4261 block_bytes\t        10.00 records\t  513984 B/op\t     795 allocs/op",
+            "extra": "1388 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 990965,
+            "unit": "ns/op",
+            "extra": "1388 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 4.3,
+            "unit": "MB/s",
+            "extra": "1388 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 4261,
+            "unit": "block_bytes",
+            "extra": "1388 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - records",
+            "value": 10,
+            "unit": "records",
+            "extra": "1388 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - B/op",
+            "value": 513984,
+            "unit": "B/op",
+            "extra": "1388 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 795,
+            "unit": "allocs/op",
+            "extra": "1388 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block",
+            "value": 140381,
+            "unit": "ns/op\t   1.06 MB/s\t       149.0 block_bytes\t         3.000 records\t  132653 B/op\t     202 allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - ns/op",
+            "value": 140381,
+            "unit": "ns/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - MB/s",
+            "value": 1.06,
+            "unit": "MB/s",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - B/op",
+            "value": 132653,
+            "unit": "B/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - allocs/op",
+            "value": 202,
+            "unit": "allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block",
+            "value": 144595,
+            "unit": "ns/op\t   1.03 MB/s\t       149.0 block_bytes\t         3.000 records\t  132651 B/op\t     202 allocs/op",
+            "extra": "9868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - ns/op",
+            "value": 144595,
+            "unit": "ns/op",
+            "extra": "9868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - MB/s",
+            "value": 1.03,
+            "unit": "MB/s",
+            "extra": "9868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "9868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "9868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - B/op",
+            "value": 132651,
+            "unit": "B/op",
+            "extra": "9868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - allocs/op",
+            "value": 202,
+            "unit": "allocs/op",
+            "extra": "9868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block",
+            "value": 144079,
+            "unit": "ns/op\t   1.03 MB/s\t       149.0 block_bytes\t         3.000 records\t  132657 B/op\t     202 allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - ns/op",
+            "value": 144079,
+            "unit": "ns/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - MB/s",
+            "value": 1.03,
+            "unit": "MB/s",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - B/op",
+            "value": 132657,
+            "unit": "B/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - allocs/op",
+            "value": 202,
+            "unit": "allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block",
+            "value": 151390,
+            "unit": "ns/op\t   0.98 MB/s\t       149.0 block_bytes\t         3.000 records\t  132647 B/op\t     202 allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - ns/op",
+            "value": 151390,
+            "unit": "ns/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - MB/s",
+            "value": 0.98,
+            "unit": "MB/s",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - B/op",
+            "value": 132647,
+            "unit": "B/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - allocs/op",
+            "value": 202,
+            "unit": "allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block",
+            "value": 123203,
+            "unit": "ns/op\t   1.21 MB/s\t       149.0 block_bytes\t         3.000 records\t  132643 B/op\t     202 allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - ns/op",
+            "value": 123203,
+            "unit": "ns/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - MB/s",
+            "value": 1.21,
+            "unit": "MB/s",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - B/op",
+            "value": 132643,
+            "unit": "B/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - allocs/op",
+            "value": 202,
+            "unit": "allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block",
+            "value": 117236,
+            "unit": "ns/op\t   1.27 MB/s\t       149.0 block_bytes\t         3.000 records\t  132768 B/op\t     205 allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - ns/op",
+            "value": 117236,
+            "unit": "ns/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - MB/s",
+            "value": 1.27,
+            "unit": "MB/s",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - B/op",
+            "value": 132768,
+            "unit": "B/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - allocs/op",
+            "value": 205,
+            "unit": "allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block",
+            "value": 116072,
+            "unit": "ns/op\t   1.28 MB/s\t       149.0 block_bytes\t         3.000 records\t  132747 B/op\t     205 allocs/op",
+            "extra": "10371 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - ns/op",
+            "value": 116072,
+            "unit": "ns/op",
+            "extra": "10371 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - MB/s",
+            "value": 1.28,
+            "unit": "MB/s",
+            "extra": "10371 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "10371 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "10371 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - B/op",
+            "value": 132747,
+            "unit": "B/op",
+            "extra": "10371 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - allocs/op",
+            "value": 205,
+            "unit": "allocs/op",
+            "extra": "10371 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block",
+            "value": 122526,
+            "unit": "ns/op\t   1.22 MB/s\t       149.0 block_bytes\t         3.000 records\t  132746 B/op\t     205 allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - ns/op",
+            "value": 122526,
+            "unit": "ns/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - MB/s",
+            "value": 1.22,
+            "unit": "MB/s",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - B/op",
+            "value": 132746,
+            "unit": "B/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - allocs/op",
+            "value": 205,
+            "unit": "allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block",
+            "value": 139176,
+            "unit": "ns/op\t   1.07 MB/s\t       149.0 block_bytes\t         3.000 records\t  132745 B/op\t     205 allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - ns/op",
+            "value": 139176,
+            "unit": "ns/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - MB/s",
+            "value": 1.07,
+            "unit": "MB/s",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - B/op",
+            "value": 132745,
+            "unit": "B/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - allocs/op",
+            "value": 205,
+            "unit": "allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block",
+            "value": 145434,
+            "unit": "ns/op\t   1.02 MB/s\t       149.0 block_bytes\t         3.000 records\t  132748 B/op\t     205 allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - ns/op",
+            "value": 145434,
+            "unit": "ns/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - MB/s",
+            "value": 1.02,
+            "unit": "MB/s",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - B/op",
+            "value": 132748,
+            "unit": "B/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - allocs/op",
+            "value": 205,
+            "unit": "allocs/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block",
+            "value": 382824,
+            "unit": "ns/op\t   0.39 MB/s\t       149.0 block_bytes\t         3.000 records\t  196102 B/op\t     310 allocs/op",
+            "extra": "3610 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 382824,
+            "unit": "ns/op",
+            "extra": "3610 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 0.39,
+            "unit": "MB/s",
+            "extra": "3610 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "3610 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "3610 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - B/op",
+            "value": 196102,
+            "unit": "B/op",
+            "extra": "3610 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 310,
+            "unit": "allocs/op",
+            "extra": "3610 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block",
+            "value": 359250,
+            "unit": "ns/op\t   0.41 MB/s\t       149.0 block_bytes\t         3.000 records\t  196100 B/op\t     310 allocs/op",
+            "extra": "3601 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 359250,
+            "unit": "ns/op",
+            "extra": "3601 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 0.41,
+            "unit": "MB/s",
+            "extra": "3601 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "3601 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "3601 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - B/op",
+            "value": 196100,
+            "unit": "B/op",
+            "extra": "3601 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 310,
+            "unit": "allocs/op",
+            "extra": "3601 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block",
+            "value": 370317,
+            "unit": "ns/op\t   0.40 MB/s\t       149.0 block_bytes\t         3.000 records\t  196140 B/op\t     310 allocs/op",
+            "extra": "3757 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 370317,
+            "unit": "ns/op",
+            "extra": "3757 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 0.4,
+            "unit": "MB/s",
+            "extra": "3757 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "3757 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "3757 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - B/op",
+            "value": 196140,
+            "unit": "B/op",
+            "extra": "3757 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 310,
+            "unit": "allocs/op",
+            "extra": "3757 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block",
+            "value": 364573,
+            "unit": "ns/op\t   0.41 MB/s\t       149.0 block_bytes\t         3.000 records\t  196083 B/op\t     310 allocs/op",
+            "extra": "3742 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 364573,
+            "unit": "ns/op",
+            "extra": "3742 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 0.41,
+            "unit": "MB/s",
+            "extra": "3742 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "3742 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "3742 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - B/op",
+            "value": 196083,
+            "unit": "B/op",
+            "extra": "3742 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 310,
+            "unit": "allocs/op",
+            "extra": "3742 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block",
+            "value": 335977,
+            "unit": "ns/op\t   0.44 MB/s\t       149.0 block_bytes\t         3.000 records\t  196115 B/op\t     310 allocs/op",
+            "extra": "3364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 335977,
+            "unit": "ns/op",
+            "extra": "3364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 0.44,
+            "unit": "MB/s",
+            "extra": "3364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 149,
+            "unit": "block_bytes",
+            "extra": "3364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - records",
+            "value": 3,
+            "unit": "records",
+            "extra": "3364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - B/op",
+            "value": 196115,
+            "unit": "B/op",
+            "extra": "3364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 310,
+            "unit": "allocs/op",
+            "extra": "3364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block",
+            "value": 551844,
+            "unit": "ns/op\t   0.10 MB/s\t        55.00 block_bytes\t         1.000 records\t 1055074 B/op\t     155 allocs/op",
+            "extra": "2094 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - ns/op",
+            "value": 551844,
+            "unit": "ns/op",
+            "extra": "2094 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - MB/s",
+            "value": 0.1,
+            "unit": "MB/s",
+            "extra": "2094 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "2094 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "2094 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - B/op",
+            "value": 1055074,
+            "unit": "B/op",
+            "extra": "2094 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - allocs/op",
+            "value": 155,
+            "unit": "allocs/op",
+            "extra": "2094 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block",
+            "value": 532614,
+            "unit": "ns/op\t   0.10 MB/s\t        55.00 block_bytes\t         1.000 records\t 1054970 B/op\t     155 allocs/op",
+            "extra": "2800 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - ns/op",
+            "value": 532614,
+            "unit": "ns/op",
+            "extra": "2800 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - MB/s",
+            "value": 0.1,
+            "unit": "MB/s",
+            "extra": "2800 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "2800 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "2800 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - B/op",
+            "value": 1054970,
+            "unit": "B/op",
+            "extra": "2800 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - allocs/op",
+            "value": 155,
+            "unit": "allocs/op",
+            "extra": "2800 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block",
+            "value": 535075,
+            "unit": "ns/op\t   0.10 MB/s\t        55.00 block_bytes\t         1.000 records\t 1055050 B/op\t     155 allocs/op",
+            "extra": "2792 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - ns/op",
+            "value": 535075,
+            "unit": "ns/op",
+            "extra": "2792 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - MB/s",
+            "value": 0.1,
+            "unit": "MB/s",
+            "extra": "2792 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "2792 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "2792 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - B/op",
+            "value": 1055050,
+            "unit": "B/op",
+            "extra": "2792 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - allocs/op",
+            "value": 155,
+            "unit": "allocs/op",
+            "extra": "2792 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block",
+            "value": 524086,
+            "unit": "ns/op\t   0.10 MB/s\t        55.00 block_bytes\t         1.000 records\t 1055153 B/op\t     155 allocs/op",
+            "extra": "2421 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - ns/op",
+            "value": 524086,
+            "unit": "ns/op",
+            "extra": "2421 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - MB/s",
+            "value": 0.1,
+            "unit": "MB/s",
+            "extra": "2421 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "2421 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "2421 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - B/op",
+            "value": 1055153,
+            "unit": "B/op",
+            "extra": "2421 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - allocs/op",
+            "value": 155,
+            "unit": "allocs/op",
+            "extra": "2421 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block",
+            "value": 492176,
+            "unit": "ns/op\t   0.11 MB/s\t        55.00 block_bytes\t         1.000 records\t 1055052 B/op\t     155 allocs/op",
+            "extra": "2384 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - ns/op",
+            "value": 492176,
+            "unit": "ns/op",
+            "extra": "2384 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - MB/s",
+            "value": 0.11,
+            "unit": "MB/s",
+            "extra": "2384 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "2384 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "2384 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - B/op",
+            "value": 1055052,
+            "unit": "B/op",
+            "extra": "2384 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - allocs/op",
+            "value": 155,
+            "unit": "allocs/op",
+            "extra": "2384 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block",
+            "value": 553204,
+            "unit": "ns/op\t   0.10 MB/s\t        55.00 block_bytes\t         1.000 records\t 1055277 B/op\t     156 allocs/op",
+            "extra": "2802 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - ns/op",
+            "value": 553204,
+            "unit": "ns/op",
+            "extra": "2802 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - MB/s",
+            "value": 0.1,
+            "unit": "MB/s",
+            "extra": "2802 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "2802 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "2802 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - B/op",
+            "value": 1055277,
+            "unit": "B/op",
+            "extra": "2802 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - allocs/op",
+            "value": 156,
+            "unit": "allocs/op",
+            "extra": "2802 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block",
+            "value": 604409,
+            "unit": "ns/op\t   0.09 MB/s\t        55.00 block_bytes\t         1.000 records\t 1055159 B/op\t     156 allocs/op",
+            "extra": "2689 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - ns/op",
+            "value": 604409,
+            "unit": "ns/op",
+            "extra": "2689 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - MB/s",
+            "value": 0.09,
+            "unit": "MB/s",
+            "extra": "2689 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "2689 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "2689 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - B/op",
+            "value": 1055159,
+            "unit": "B/op",
+            "extra": "2689 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - allocs/op",
+            "value": 156,
+            "unit": "allocs/op",
+            "extra": "2689 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block",
+            "value": 584243,
+            "unit": "ns/op\t   0.09 MB/s\t        55.00 block_bytes\t         1.000 records\t 1055123 B/op\t     156 allocs/op",
+            "extra": "1820 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - ns/op",
+            "value": 584243,
+            "unit": "ns/op",
+            "extra": "1820 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - MB/s",
+            "value": 0.09,
+            "unit": "MB/s",
+            "extra": "1820 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "1820 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "1820 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - B/op",
+            "value": 1055123,
+            "unit": "B/op",
+            "extra": "1820 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - allocs/op",
+            "value": 156,
+            "unit": "allocs/op",
+            "extra": "1820 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block",
+            "value": 623496,
+            "unit": "ns/op\t   0.09 MB/s\t        55.00 block_bytes\t         1.000 records\t 1055162 B/op\t     156 allocs/op",
+            "extra": "2109 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - ns/op",
+            "value": 623496,
+            "unit": "ns/op",
+            "extra": "2109 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - MB/s",
+            "value": 0.09,
+            "unit": "MB/s",
+            "extra": "2109 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "2109 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "2109 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - B/op",
+            "value": 1055162,
+            "unit": "B/op",
+            "extra": "2109 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - allocs/op",
+            "value": 156,
+            "unit": "allocs/op",
+            "extra": "2109 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block",
+            "value": 562596,
+            "unit": "ns/op\t   0.10 MB/s\t        55.00 block_bytes\t         1.000 records\t 1055290 B/op\t     156 allocs/op",
+            "extra": "1858 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - ns/op",
+            "value": 562596,
+            "unit": "ns/op",
+            "extra": "1858 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - MB/s",
+            "value": 0.1,
+            "unit": "MB/s",
+            "extra": "1858 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "1858 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "1858 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - B/op",
+            "value": 1055290,
+            "unit": "B/op",
+            "extra": "1858 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - allocs/op",
+            "value": 156,
+            "unit": "allocs/op",
+            "extra": "1858 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block",
+            "value": 857527,
+            "unit": "ns/op\t   0.06 MB/s\t        55.00 block_bytes\t         1.000 records\t 1221710 B/op\t     205 allocs/op",
+            "extra": "1513 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 857527,
+            "unit": "ns/op",
+            "extra": "1513 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 0.06,
+            "unit": "MB/s",
+            "extra": "1513 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "1513 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "1513 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - B/op",
+            "value": 1221710,
+            "unit": "B/op",
+            "extra": "1513 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 205,
+            "unit": "allocs/op",
+            "extra": "1513 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block",
+            "value": 925705,
+            "unit": "ns/op\t   0.06 MB/s\t        55.00 block_bytes\t         1.000 records\t 1221681 B/op\t     205 allocs/op",
+            "extra": "1904 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 925705,
+            "unit": "ns/op",
+            "extra": "1904 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 0.06,
+            "unit": "MB/s",
+            "extra": "1904 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "1904 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "1904 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - B/op",
+            "value": 1221681,
+            "unit": "B/op",
+            "extra": "1904 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 205,
+            "unit": "allocs/op",
+            "extra": "1904 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block",
+            "value": 881945,
+            "unit": "ns/op\t   0.06 MB/s\t        55.00 block_bytes\t         1.000 records\t 1221834 B/op\t     205 allocs/op",
+            "extra": "1227 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 881945,
+            "unit": "ns/op",
+            "extra": "1227 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 0.06,
+            "unit": "MB/s",
+            "extra": "1227 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "1227 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "1227 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - B/op",
+            "value": 1221834,
+            "unit": "B/op",
+            "extra": "1227 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 205,
+            "unit": "allocs/op",
+            "extra": "1227 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block",
+            "value": 960808,
+            "unit": "ns/op\t   0.06 MB/s\t        55.00 block_bytes\t         1.000 records\t 1221738 B/op\t     205 allocs/op",
+            "extra": "1360 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 960808,
+            "unit": "ns/op",
+            "extra": "1360 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 0.06,
+            "unit": "MB/s",
+            "extra": "1360 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "1360 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "1360 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - B/op",
+            "value": 1221738,
+            "unit": "B/op",
+            "extra": "1360 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 205,
+            "unit": "allocs/op",
+            "extra": "1360 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block",
+            "value": 943549,
+            "unit": "ns/op\t   0.06 MB/s\t        55.00 block_bytes\t         1.000 records\t 1222181 B/op\t     205 allocs/op",
+            "extra": "1364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 943549,
+            "unit": "ns/op",
+            "extra": "1364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 0.06,
+            "unit": "MB/s",
+            "extra": "1364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 55,
+            "unit": "block_bytes",
+            "extra": "1364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - records",
+            "value": 1,
+            "unit": "records",
+            "extra": "1364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - B/op",
+            "value": 1222181,
+            "unit": "B/op",
+            "extra": "1364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 205,
+            "unit": "allocs/op",
+            "extra": "1364 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block",
+            "value": 1277161,
+            "unit": "ns/op\t  20.91 MB/s\t     26707 block_bytes\t        14.00 records\t10162722 B/op\t    1118 allocs/op",
+            "extra": "1030 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - ns/op",
+            "value": 1277161,
+            "unit": "ns/op",
+            "extra": "1030 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - MB/s",
+            "value": 20.91,
+            "unit": "MB/s",
+            "extra": "1030 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "1030 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "1030 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - B/op",
+            "value": 10162722,
+            "unit": "B/op",
+            "extra": "1030 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - allocs/op",
+            "value": 1118,
+            "unit": "allocs/op",
+            "extra": "1030 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block",
+            "value": 1225332,
+            "unit": "ns/op\t  21.80 MB/s\t     26707 block_bytes\t        14.00 records\t10162680 B/op\t    1118 allocs/op",
+            "extra": "930 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - ns/op",
+            "value": 1225332,
+            "unit": "ns/op",
+            "extra": "930 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - MB/s",
+            "value": 21.8,
+            "unit": "MB/s",
+            "extra": "930 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "930 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "930 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - B/op",
+            "value": 10162680,
+            "unit": "B/op",
+            "extra": "930 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - allocs/op",
+            "value": 1118,
+            "unit": "allocs/op",
+            "extra": "930 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block",
+            "value": 1333503,
+            "unit": "ns/op\t  20.03 MB/s\t     26707 block_bytes\t        14.00 records\t10163277 B/op\t    1118 allocs/op",
+            "extra": "931 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - ns/op",
+            "value": 1333503,
+            "unit": "ns/op",
+            "extra": "931 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - MB/s",
+            "value": 20.03,
+            "unit": "MB/s",
+            "extra": "931 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "931 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "931 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - B/op",
+            "value": 10163277,
+            "unit": "B/op",
+            "extra": "931 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - allocs/op",
+            "value": 1118,
+            "unit": "allocs/op",
+            "extra": "931 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block",
+            "value": 1392079,
+            "unit": "ns/op\t  19.18 MB/s\t     26707 block_bytes\t        14.00 records\t10162577 B/op\t    1118 allocs/op",
+            "extra": "890 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - ns/op",
+            "value": 1392079,
+            "unit": "ns/op",
+            "extra": "890 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - MB/s",
+            "value": 19.18,
+            "unit": "MB/s",
+            "extra": "890 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "890 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "890 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - B/op",
+            "value": 10162577,
+            "unit": "B/op",
+            "extra": "890 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - allocs/op",
+            "value": 1118,
+            "unit": "allocs/op",
+            "extra": "890 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block",
+            "value": 1258046,
+            "unit": "ns/op\t  21.23 MB/s\t     26707 block_bytes\t        14.00 records\t10162087 B/op\t    1118 allocs/op",
+            "extra": "980 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - ns/op",
+            "value": 1258046,
+            "unit": "ns/op",
+            "extra": "980 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - MB/s",
+            "value": 21.23,
+            "unit": "MB/s",
+            "extra": "980 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "980 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "980 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - B/op",
+            "value": 10162087,
+            "unit": "B/op",
+            "extra": "980 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - allocs/op",
+            "value": 1118,
+            "unit": "allocs/op",
+            "extra": "980 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block",
+            "value": 1266651,
+            "unit": "ns/op\t  21.08 MB/s\t     26707 block_bytes\t        14.00 records\t10163476 B/op\t    1143 allocs/op",
+            "extra": "966 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - ns/op",
+            "value": 1266651,
+            "unit": "ns/op",
+            "extra": "966 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - MB/s",
+            "value": 21.08,
+            "unit": "MB/s",
+            "extra": "966 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "966 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "966 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - B/op",
+            "value": 10163476,
+            "unit": "B/op",
+            "extra": "966 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - allocs/op",
+            "value": 1143,
+            "unit": "allocs/op",
+            "extra": "966 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block",
+            "value": 1269321,
+            "unit": "ns/op\t  21.04 MB/s\t     26707 block_bytes\t        14.00 records\t10163806 B/op\t    1143 allocs/op",
+            "extra": "934 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - ns/op",
+            "value": 1269321,
+            "unit": "ns/op",
+            "extra": "934 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - MB/s",
+            "value": 21.04,
+            "unit": "MB/s",
+            "extra": "934 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "934 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "934 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - B/op",
+            "value": 10163806,
+            "unit": "B/op",
+            "extra": "934 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - allocs/op",
+            "value": 1143,
+            "unit": "allocs/op",
+            "extra": "934 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block",
+            "value": 1207609,
+            "unit": "ns/op\t  22.12 MB/s\t     26707 block_bytes\t        14.00 records\t10162708 B/op\t    1143 allocs/op",
+            "extra": "974 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - ns/op",
+            "value": 1207609,
+            "unit": "ns/op",
+            "extra": "974 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - MB/s",
+            "value": 22.12,
+            "unit": "MB/s",
+            "extra": "974 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "974 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "974 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - B/op",
+            "value": 10162708,
+            "unit": "B/op",
+            "extra": "974 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - allocs/op",
+            "value": 1143,
+            "unit": "allocs/op",
+            "extra": "974 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block",
+            "value": 1160189,
+            "unit": "ns/op\t  23.02 MB/s\t     26707 block_bytes\t        14.00 records\t10163368 B/op\t    1143 allocs/op",
+            "extra": "1071 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - ns/op",
+            "value": 1160189,
+            "unit": "ns/op",
+            "extra": "1071 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - MB/s",
+            "value": 23.02,
+            "unit": "MB/s",
+            "extra": "1071 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "1071 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "1071 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - B/op",
+            "value": 10163368,
+            "unit": "B/op",
+            "extra": "1071 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - allocs/op",
+            "value": 1143,
+            "unit": "allocs/op",
+            "extra": "1071 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block",
+            "value": 1190221,
+            "unit": "ns/op\t  22.44 MB/s\t     26707 block_bytes\t        14.00 records\t10163175 B/op\t    1143 allocs/op",
+            "extra": "1130 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - ns/op",
+            "value": 1190221,
+            "unit": "ns/op",
+            "extra": "1130 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - MB/s",
+            "value": 22.44,
+            "unit": "MB/s",
+            "extra": "1130 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "1130 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "1130 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - B/op",
+            "value": 10163175,
+            "unit": "B/op",
+            "extra": "1130 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - allocs/op",
+            "value": 1143,
+            "unit": "allocs/op",
+            "extra": "1130 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block",
+            "value": 5937585,
+            "unit": "ns/op\t   4.50 MB/s\t     26707 block_bytes\t        14.00 records\t48825015 B/op\t    1661 allocs/op",
+            "extra": "206 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 5937585,
+            "unit": "ns/op",
+            "extra": "206 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 4.5,
+            "unit": "MB/s",
+            "extra": "206 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "206 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "206 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - B/op",
+            "value": 48825015,
+            "unit": "B/op",
+            "extra": "206 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 1661,
+            "unit": "allocs/op",
+            "extra": "206 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block",
+            "value": 5969841,
+            "unit": "ns/op\t   4.47 MB/s\t     26707 block_bytes\t        14.00 records\t48824736 B/op\t    1661 allocs/op",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 5969841,
+            "unit": "ns/op",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 4.47,
+            "unit": "MB/s",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - B/op",
+            "value": 48824736,
+            "unit": "B/op",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 1661,
+            "unit": "allocs/op",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block",
+            "value": 5836930,
+            "unit": "ns/op\t   4.58 MB/s\t     26707 block_bytes\t        14.00 records\t48822769 B/op\t    1660 allocs/op",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 5836930,
+            "unit": "ns/op",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 4.58,
+            "unit": "MB/s",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - B/op",
+            "value": 48822769,
+            "unit": "B/op",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 1660,
+            "unit": "allocs/op",
+            "extra": "205 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block",
+            "value": 5806859,
+            "unit": "ns/op\t   4.60 MB/s\t     26707 block_bytes\t        14.00 records\t48823444 B/op\t    1661 allocs/op",
+            "extra": "192 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 5806859,
+            "unit": "ns/op",
+            "extra": "192 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 4.6,
+            "unit": "MB/s",
+            "extra": "192 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "192 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "192 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - B/op",
+            "value": 48823444,
+            "unit": "B/op",
+            "extra": "192 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 1661,
+            "unit": "allocs/op",
+            "extra": "192 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block",
+            "value": 5882820,
+            "unit": "ns/op\t   4.54 MB/s\t     26707 block_bytes\t        14.00 records\t48824390 B/op\t    1661 allocs/op",
+            "extra": "207 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 5882820,
+            "unit": "ns/op",
+            "extra": "207 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - MB/s",
+            "value": 4.54,
+            "unit": "MB/s",
+            "extra": "207 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - block_bytes",
+            "value": 26707,
+            "unit": "block_bytes",
+            "extra": "207 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - records",
+            "value": 14,
+            "unit": "records",
+            "extra": "207 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - B/op",
+            "value": 48824390,
+            "unit": "B/op",
+            "extra": "207 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 1661,
+            "unit": "allocs/op",
+            "extra": "207 times\n4 procs"
           }
         ]
       }
