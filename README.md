@@ -23,7 +23,7 @@ should still be treated as evolving until a first tagged release.
 xz, bzip2, and LZ4 WARC files are generally compressed as one
 whole file; I have not found real-world per-record usage comparable to gzip
 or WARC-zstd.
-For those whole-file envelopes, use `github.com/saveweb/warcsource` or another
+For those whole-file envelopes, use `github.com/saveweb/decodedsource` or another
 outer-layer decoder, then pass the resulting uncompressed WARC stream to
 `NewScanner`:
 
