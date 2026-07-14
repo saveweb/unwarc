@@ -35,23 +35,24 @@ func TestRealZstdVariantCorpus(t *testing.T) {
 	paths := ensureRealZstdVariants(t)
 
 	for _, tt := range []struct {
-		name              string
-		path              string
-		strict            bool
-		wantMissingFCS    bool
-		wantMissingCRC    bool
-		wantStrictFailure bool
+		name                string
+		path                string
+		requireAll          bool
+		wantMissingFCS      bool
+		wantMissingCRC      bool
+		wantRequiredFailure bool
 	}{
-		{name: "zstd_fcs_strict", path: paths.FCS, strict: true},
-		{name: "zstd_no_fcs_nonstrict", path: paths.NoFCS, wantMissingFCS: true},
-		{name: "zstd_no_fcs_strict", path: paths.NoFCS, strict: true, wantStrictFailure: true},
+		{name: "zstd_fcs_required", path: paths.FCS, requireAll: true},
+		{name: "zstd_no_fcs_reported", path: paths.NoFCS, wantMissingFCS: true},
+		{name: "zstd_no_fcs_required", path: paths.NoFCS, requireAll: true, wantRequiredFailure: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			stats, issues, err := scanRealCorpusVariant(tt.path, ScannerOptions{
-				Compression: CompressionUnknown,
-				Strict:      tt.strict,
-			})
-			if tt.wantStrictFailure {
+			opts := ScannerOptions{Compression: CompressionUnknown}
+			if tt.requireAll {
+				opts = requireAllValidation(CompressionUnknown)
+			}
+			stats, issues, err := scanRealCorpusVariant(tt.path, opts)
+			if tt.wantRequiredFailure {
 				if !errors.Is(err, ErrInvalidWARCZstd) {
 					t.Fatalf("scan error = %v, want %v", err, ErrInvalidWARCZstd)
 				}
@@ -88,17 +89,17 @@ func BenchmarkRealZstdVariants(b *testing.B) {
 		opts ScannerOptions
 	}{
 		{
-			name: "gzip_source_stream_block_strict",
+			name: "gzip_source_stream_block_required",
 			path: paths.Gzip,
-			opts: ScannerOptions{Compression: CompressionUnknown, Strict: true},
+			opts: requireAllValidation(CompressionUnknown),
 		},
 		{
-			name: "zstd_fcs_source_stream_block_strict",
+			name: "zstd_fcs_source_stream_block_required",
 			path: paths.FCS,
-			opts: ScannerOptions{Compression: CompressionUnknown, Strict: true},
+			opts: requireAllValidation(CompressionUnknown),
 		},
 		{
-			name: "zstd_no_fcs_source_stream_block_nonstrict",
+			name: "zstd_no_fcs_source_stream_block_reported",
 			path: paths.NoFCS,
 			opts: ScannerOptions{Compression: CompressionUnknown},
 		},
@@ -156,10 +157,7 @@ func writeRealZstdVariants(paths zstdVariantPaths) (stats realCorpusStats, err e
 		err = errors.Join(err, in.Close())
 	}()
 
-	scanner, err := NewScanner(in, ScannerOptions{
-		Compression: CompressionUnknown,
-		Strict:      true,
-	})
+	scanner, err := NewScanner(in, requireAllValidation(CompressionUnknown))
 	if err != nil {
 		return realCorpusStats{}, err
 	}

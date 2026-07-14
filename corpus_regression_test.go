@@ -26,8 +26,8 @@ type corpusExpectation struct {
 type corpusFixture struct {
 	name       string
 	path       string
-	nonStrict  corpusExpectation
-	strict     *corpusExpectation
+	reported   corpusExpectation
+	required   *corpusExpectation
 	lazyChecks int
 }
 
@@ -36,7 +36,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 		{
 			name: "commoncrawl first gzip member",
 			path: "commoncrawl/cc-main-2024-10-first-warcinfo.warc.gz",
-			nonStrict: corpusExpectation{
+			reported: corpusExpectation{
 				records: 1,
 				types:   []string{"warcinfo"},
 				access:  map[AccessMode]int{AccessExact: 1},
@@ -46,7 +46,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 		{
 			name: "gowarc gzip record-per-member",
 			path: "gowarc/gowarc-test.warc.gz",
-			nonStrict: corpusExpectation{
+			reported: corpusExpectation{
 				records: 3,
 				types:   []string{"warcinfo", "request", "response"},
 				access:  map[AccessMode]int{AccessExact: 3},
@@ -56,7 +56,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 		{
 			name: "gowarc solid gzip",
 			path: "gowarc/gowarc-solid-gzip.warc.gz",
-			nonStrict: corpusExpectation{
+			reported: corpusExpectation{
 				records: 10,
 				access:  map[AccessMode]int{AccessFromCompressionUnitStart: 10},
 				issues:  map[IssueCode]int{IssueSolidGzipMember: 10},
@@ -65,7 +65,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 		{
 			name: "gowarc single zstd",
 			path: "gowarc/gowarc-single-record.warc.zst",
-			nonStrict: corpusExpectation{
+			reported: corpusExpectation{
 				records: 1,
 				types:   []string{"warcinfo"},
 				access:  map[AccessMode]int{AccessExact: 1},
@@ -75,7 +75,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 		{
 			name: "gowarc multiple zstd records",
 			path: "gowarc/gowarc-multi-record.warc.zst",
-			nonStrict: corpusExpectation{
+			reported: corpusExpectation{
 				records: 3,
 				types:   []string{"warcinfo", "response", "response"},
 				access:  map[AccessMode]int{AccessExact: 3},
@@ -85,7 +85,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 		{
 			name: "gowarc dictionary zstd",
 			path: "gowarc/gowarc-dict-record.warc.zst",
-			nonStrict: corpusExpectation{
+			reported: corpusExpectation{
 				records: 1,
 				types:   []string{"response"},
 				access:  map[AccessMode]int{AccessExact: 1},
@@ -95,7 +95,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 		{
 			name: "gowarc corrupted zstd mid-frame",
 			path: "gowarc/gowarc-corrupted-mid-frame.warc.zst.open",
-			nonStrict: corpusExpectation{
+			reported: corpusExpectation{
 				records: 1,
 				types:   []string{"warcinfo"},
 				access:  map[AccessMode]int{AccessExact: 1},
@@ -106,7 +106,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 		{
 			name: "gowarc corrupted zstd header",
 			path: "gowarc/gowarc-corrupted-header.warc.zst.open",
-			nonStrict: corpusExpectation{
+			reported: corpusExpectation{
 				records:     2,
 				types:       []string{"warcinfo", "response"},
 				access:      map[AccessMode]int{AccessExact: 2},
@@ -117,11 +117,11 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 		{
 			name: "gowarc truncated zstd",
 			path: "gowarc/gowarc-truncated.warc.zst.open",
-			nonStrict: corpusExpectation{
+			reported: corpusExpectation{
 				records: 0,
 				errIs:   io.ErrUnexpectedEOF,
 			},
-			strict: &corpusExpectation{
+			required: &corpusExpectation{
 				records:     0,
 				errIs:       ErrInvalidWARCZstd,
 				errContains: "Frame_Content_Size",
@@ -130,7 +130,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 		{
 			name: "gowarc corrupted gzip mid-record",
 			path: "gowarc/gowarc-corrupted-mid-record.warc.gz.open",
-			nonStrict: corpusExpectation{
+			reported: corpusExpectation{
 				records: 12,
 				access:  map[AccessMode]int{AccessFromCompressionUnitStart: 12},
 				issues:  map[IssueCode]int{IssueSolidGzipMember: 12},
@@ -141,7 +141,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 		{
 			name: "zeno zstd missing frame content size",
 			path: "zeno/zeno-fcs-missing.warc.zst",
-			nonStrict: corpusExpectation{
+			reported: corpusExpectation{
 				records: 14,
 				types: []string{
 					"warcinfo", "resource", "request", "response", "request", "response", "metadata",
@@ -150,7 +150,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 				access: map[AccessMode]int{AccessExact: 14},
 				issues: map[IssueCode]int{IssueZstdFrameMissingContentSize: 4},
 			},
-			strict: &corpusExpectation{
+			required: &corpusExpectation{
 				records:     6,
 				access:      map[AccessMode]int{AccessExact: 6},
 				issues:      map[IssueCode]int{},
@@ -161,7 +161,7 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 		{
 			name: "zeno gzip small",
 			path: "zeno/zeno-small.warc.gz",
-			nonStrict: corpusExpectation{
+			reported: corpusExpectation{
 				records: 4,
 				types:   []string{"warcinfo", "resource", "response", "request"},
 				access:  map[AccessMode]int{AccessExact: 4},
@@ -171,16 +171,16 @@ func TestCorpusRegressionFixtures(t *testing.T) {
 	}
 
 	for _, fixture := range fixtures {
-		t.Run(fixture.name+"/non-strict", func(t *testing.T) {
+		t.Run(fixture.name+"/reported", func(t *testing.T) {
 			refs, err := scanCorpusFixture(t, fixture.path, false)
-			assertCorpusExpectation(t, refs, err, fixture.nonStrict)
+			assertCorpusExpectation(t, refs, err, fixture.reported)
 			assertLazyReadable(t, refs, fixture.lazyChecks)
 		})
 
-		t.Run(fixture.name+"/strict", func(t *testing.T) {
-			want := fixture.nonStrict
-			if fixture.strict != nil {
-				want = *fixture.strict
+		t.Run(fixture.name+"/required", func(t *testing.T) {
+			want := fixture.reported
+			if fixture.required != nil {
+				want = *fixture.required
 			}
 			refs, err := scanCorpusFixture(t, fixture.path, true)
 			assertCorpusExpectation(t, refs, err, want)
@@ -213,17 +213,18 @@ func TestExternalCorpusSmoke(t *testing.T) {
 	}
 }
 
-func scanCorpusFixture(t *testing.T, rel string, strict bool) ([]*RecordRef, error) {
+func scanCorpusFixture(t *testing.T, rel string, requireAll bool) ([]*RecordRef, error) {
 	t.Helper()
-	return scanCorpusPath(t, filepath.Join("testdata", "corpus", rel), strict)
+	return scanCorpusPath(t, filepath.Join("testdata", "corpus", rel), requireAll)
 }
 
-func scanCorpusPath(t *testing.T, path string, strict bool) ([]*RecordRef, error) {
+func scanCorpusPath(t *testing.T, path string, requireAll bool) ([]*RecordRef, error) {
 	t.Helper()
-	scanner, err := NewScannerFromSource(NewFileSource(path), ScannerOptions{
-		Compression: CompressionUnknown,
-		Strict:      strict,
-	})
+	opts := ScannerOptions{Compression: CompressionUnknown}
+	if requireAll {
+		opts = requireAllValidation(CompressionUnknown)
+	}
+	scanner, err := NewScannerFromSource(NewFileSource(path), opts)
 	if err != nil {
 		return nil, err
 	}
@@ -236,12 +237,13 @@ func scanCorpusPath(t *testing.T, path string, strict bool) ([]*RecordRef, error
 	return refs, scanner.Err()
 }
 
-func scanCorpusPathN(t *testing.T, path string, strict bool, limit int) ([]*RecordRef, error) {
+func scanCorpusPathN(t *testing.T, path string, requireAll bool, limit int) ([]*RecordRef, error) {
 	t.Helper()
-	scanner, err := NewScannerFromSource(NewFileSource(path), ScannerOptions{
-		Compression: CompressionUnknown,
-		Strict:      strict,
-	})
+	opts := ScannerOptions{Compression: CompressionUnknown}
+	if requireAll {
+		opts = requireAllValidation(CompressionUnknown)
+	}
+	scanner, err := NewScannerFromSource(NewFileSource(path), opts)
 	if err != nil {
 		return nil, err
 	}

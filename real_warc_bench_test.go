@@ -48,10 +48,7 @@ func benchmarkStreamBlock(tb testing.TB, path string) (int, int64) {
 	}
 	defer closeTest(tb, f)
 
-	scanner, err := NewScanner(f, ScannerOptions{
-		Compression: CompressionUnknown,
-		Strict:      true,
-	})
+	scanner, err := NewScanner(f, requireAllValidation(CompressionUnknown))
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -60,10 +57,7 @@ func benchmarkStreamBlock(tb testing.TB, path string) (int, int64) {
 
 func benchmarkSourceStreamBlock(tb testing.TB, path string) (int, int64) {
 	tb.Helper()
-	scanner, err := NewScannerFromSource(NewFileSource(path), ScannerOptions{
-		Compression: CompressionUnknown,
-		Strict:      true,
-	})
+	scanner, err := NewScannerFromSource(NewFileSource(path), requireAllValidation(CompressionUnknown))
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -72,10 +66,7 @@ func benchmarkSourceStreamBlock(tb testing.TB, path string) (int, int64) {
 
 func benchmarkSourceScanThenLazyReopenBlock(tb testing.TB, path string) (int, int64) {
 	tb.Helper()
-	scanner, err := NewScannerFromSource(NewFileSource(path), ScannerOptions{
-		Compression: CompressionUnknown,
-		Strict:      true,
-	})
+	scanner, err := NewScannerFromSource(NewFileSource(path), requireAllValidation(CompressionUnknown))
 	if err != nil {
 		tb.Fatal(err)
 	}

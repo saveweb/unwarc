@@ -35,7 +35,7 @@ var (
 	// next compression unit cannot currently be scanned independently.
 	ErrCompressionUnitAccessNotImplemented = errors.New("compression-unit access is not implemented")
 
-	// ErrInvalidWARCZstd reports a WARC-zstd layout violation in strict mode.
+	// ErrInvalidWARCZstd reports a required WARC-zstd validation failure.
 	ErrInvalidWARCZstd = errors.New("invalid WARC-zstd")
 
 	// ErrRecordLocationPending reports an attempt to lazily reopen a record

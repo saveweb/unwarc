@@ -341,7 +341,7 @@ func TestScannerNextRecordClosesPreviousRecord(t *testing.T) {
 	}
 }
 
-func TestScannerNextRecordReportsStrictTrailerErrors(t *testing.T) {
+func TestScannerNextRecordRequiresTrailer(t *testing.T) {
 	data := []byte(
 		"WARC/1.1\r\n" +
 			"WARC-Type: resource\r\n" +
@@ -351,8 +351,8 @@ func TestScannerNextRecordReportsStrictTrailerErrors(t *testing.T) {
 			"ABC",
 	)
 	scanner, err := NewScanner(bytes.NewReader(data), ScannerOptions{
-		Compression: CompressionPlain,
-		Strict:      true,
+		Compression:          CompressionPlain,
+		RequireRecordTrailer: true,
 	})
 	if err != nil {
 		t.Fatal(err)

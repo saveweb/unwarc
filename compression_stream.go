@@ -21,7 +21,12 @@ type compressionStream interface {
 	Sync() error
 }
 
-func newCompressionStream(r io.Reader, compression Compression, maxBufferedZstdFrameSize int64, strict bool) (compressionStream, error) {
+type zstdFrameRequirements struct {
+	contentSize bool
+	checksum    bool
+}
+
+func newCompressionStream(r io.Reader, compression Compression, maxBufferedZstdFrameSize int64, requirements zstdFrameRequirements) (compressionStream, error) {
 	cr := newCountingReader(r)
 	switch compression {
 	case CompressionPlain:
@@ -29,7 +34,7 @@ func newCompressionStream(r io.Reader, compression Compression, maxBufferedZstdF
 	case CompressionGzip:
 		return newGzipCompressionStream(cr)
 	case CompressionZstd:
-		return newZstdCompressionStream(cr, maxBufferedZstdFrameSize, strict)
+		return newZstdCompressionStream(cr, maxBufferedZstdFrameSize, requirements)
 	case CompressionBzip2:
 		return &wholeCompressionStream{
 			cr:          cr,
@@ -220,17 +225,17 @@ type zstdCompressionStream struct {
 	probeEOF             bool
 	probeErr             error
 	maxBufferedFrameSize int64
-	strict               bool
+	requirements         zstdFrameRequirements
 	sawFrame             bool
 	sawDict              bool
 	sawExtension         bool
 }
 
-func newZstdCompressionStream(cr *countingReader, maxBufferedFrameSize int64, strict bool) (*zstdCompressionStream, error) {
+func newZstdCompressionStream(cr *countingReader, maxBufferedFrameSize int64, requirements zstdFrameRequirements) (*zstdCompressionStream, error) {
 	return &zstdCompressionStream{
 		cr:                   cr,
 		maxBufferedFrameSize: maxBufferedFrameSize,
-		strict:               strict,
+		requirements:         requirements,
 	}, nil
 }
 
@@ -260,10 +265,7 @@ func (s *zstdCompressionStream) startFrame() error {
 				headerSeen = true
 				current.ZstdHasFrameContentSize = meta.HasFrameContentSize
 				current.ZstdHasContentChecksum = meta.HasContentChecksum
-				if s.strict {
-					return strictZstdFrameRequirementError(meta)
-				}
-				return nil
+				return zstdFrameRequirementError(meta, s.requirements)
 			}
 			// WARC-zstd frames are intended to be independent record units.
 			// Small known-size frames use DecodeAll for speed; unknown or large
@@ -564,11 +566,11 @@ func readZstdFrameBuffered(dst []byte, r io.Reader, max int64, shouldFallback fu
 	}
 }
 
-func strictZstdFrameRequirementError(meta zstdFrameMetadata) error {
+func zstdFrameRequirementError(meta zstdFrameMetadata, requirements zstdFrameRequirements) error {
 	switch {
-	case !meta.HasFrameContentSize:
+	case requirements.contentSize && !meta.HasFrameContentSize:
 		return fmt.Errorf("%w: zstd frame is missing Frame_Content_Size", ErrInvalidWARCZstd)
-	case !meta.HasContentChecksum:
+	case requirements.checksum && !meta.HasContentChecksum:
 		return fmt.Errorf("%w: zstd frame is missing Content_Checksum", ErrInvalidWARCZstd)
 	default:
 		return nil

@@ -15,9 +15,20 @@ type ScannerOptions struct {
 	// gzip, zstd, bzip2, xz, or plain input from the stream or source name.
 	Compression Compression
 
-	// Strict upgrades malformed record trailers and WARC-zstd layout
-	// violations to fatal scanner errors.
-	Strict bool
+	// RequireRecordTrailer makes a missing, partial, or invalid WARC record
+	// trailer fatal instead of recording IssueMissingRecordTrailer.
+	RequireRecordTrailer bool
+
+	// RequireZstdFrameContentSize rejects zstd frames without
+	// Frame_Content_Size.
+	RequireZstdFrameContentSize bool
+
+	// RequireZstdFrameChecksum rejects zstd frames without Content_Checksum.
+	RequireZstdFrameChecksum bool
+
+	// RequireZstdRecordIsolation rejects a zstd frame that contributes bytes to
+	// more than one WARC record. A single record may still span multiple frames.
+	RequireZstdRecordIsolation bool
 
 	// FoldedFields controls named-field continuation lines within the WARC
 	// record header. The zero value accepts and unfolds them for WARC 1.0/1.1
@@ -61,7 +72,7 @@ func NewScanner(r io.Reader, opts ScannerOptions) (*Scanner, error) {
 			return nil, err
 		}
 	}
-	stream, err := newCompressionStream(r, compression, opts.maxBufferedZstdFrameSize(), opts.Strict)
+	stream, err := newCompressionStream(r, compression, opts.maxBufferedZstdFrameSize(), opts.zstdFrameRequirements())
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +100,7 @@ func NewScannerFromSource(source RandomAccessSource, opts ScannerOptions) (*Scan
 		}
 		rc = &readCloser{Reader: r, close: rc.Close}
 	}
-	stream, err := newCompressionStream(rc, compression, opts.maxBufferedZstdFrameSize(), opts.Strict)
+	stream, err := newCompressionStream(rc, compression, opts.maxBufferedZstdFrameSize(), opts.zstdFrameRequirements())
 	if err != nil {
 		_ = rc.Close()
 		return nil, err
@@ -112,6 +123,13 @@ func (o ScannerOptions) maxBufferedZstdFrameSize() int64 {
 		return defaultMaxBufferedZstdFrameSize
 	}
 	return o.MaxBufferedZstdFrameSize
+}
+
+func (o ScannerOptions) zstdFrameRequirements() zstdFrameRequirements {
+	return zstdFrameRequirements{
+		contentSize: o.RequireZstdFrameContentSize,
+		checksum:    o.RequireZstdFrameChecksum,
+	}
 }
 
 // Close finalizes any active record and closes the underlying readers.
@@ -242,12 +260,12 @@ func (s *Scanner) finishRecord(ref *RecordRef, start int64) error {
 	issues := make([]Issue, 0)
 	trailer, trailerIssues, err := readRecordTrailer(s.stream)
 	if err != nil {
-		if s.opts.Strict {
+		if s.opts.RequireRecordTrailer {
 			return fmt.Errorf("%w: %v", ErrMissingRecordTrailer, err)
 		}
 		issues = append(issues, Issue{Code: IssueMissingRecordTrailer, Message: err.Error()})
 	} else {
-		if len(trailerIssues) > 0 && s.opts.Strict {
+		if len(trailerIssues) > 0 && s.opts.RequireRecordTrailer {
 			return fmt.Errorf("%w: %s", ErrMissingRecordTrailer, trailerIssues[0].Message)
 		}
 		issues = append(issues, trailerIssues...)
@@ -259,7 +277,7 @@ func (s *Scanner) finishRecord(ref *RecordRef, start int64) error {
 	}
 	resolution := s.resolveRecord(Range{Off: start, Size: end - start})
 	resolution.issues = append(resolution.issues, issues...)
-	if err := s.strictIssueError(resolution.issues); err != nil {
+	if err := s.recordIsolationError(resolution.issues); err != nil {
 		return err
 	}
 
@@ -378,13 +396,12 @@ func (r *RecordReader) fail(err error) {
 	r.scanner.err = err
 }
 
-func (s *Scanner) strictIssueError(issues []Issue) error {
-	if !s.opts.Strict || s.stream.Compression() != CompressionZstd {
+func (s *Scanner) recordIsolationError(issues []Issue) error {
+	if !s.opts.RequireZstdRecordIsolation {
 		return nil
 	}
 	for _, issue := range issues {
-		switch issue.Code {
-		case IssueFrameContainsMultipleRecords, IssueZstdFrameMissingContentSize, IssueZstdFrameMissingChecksum:
+		if issue.Code == IssueFrameContainsMultipleRecords {
 			return fmt.Errorf("%w: %s", ErrInvalidWARCZstd, issue.Message)
 		}
 	}

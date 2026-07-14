@@ -27,8 +27,7 @@
 //
 // WARC version lines, header CRLF framing, and named-field syntax are parsed
 // strictly by default. ScannerOptions.Resynchronize can explicitly permit extra
-// CRLF lines at record boundaries. Strict mode additionally upgrades malformed
-// record trailers and WARC-zstd layout violations, including missing
-// Frame_Content_Size or Content_Checksum and multiple logical records in one
-// frame, to fatal errors.
+// CRLF lines at record boundaries. Independent ScannerOptions requirements can
+// make malformed record trailers, missing zstd Frame_Content_Size or
+// Content_Checksum fields, and zstd frames shared by multiple records fatal.
 package unwarc

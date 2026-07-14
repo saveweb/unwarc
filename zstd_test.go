@@ -83,20 +83,37 @@ func TestZstdSingleFrameMultipleRecordsLazyFromCompressionUnitStart(t *testing.T
 	assertZstdOpenBlock(t, refs[1], block2)
 }
 
-func TestZstdStrictRejectsSingleFrameMultipleRecords(t *testing.T) {
-	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-strict-solid-1>", []byte("ABC"))
-	record2 := makeRecord("response", "<urn:uuid:zstd-strict-solid-2>", []byte("DEFG"))
+func TestZstdRecordIsolationRejectsSingleFrameMultipleRecords(t *testing.T) {
+	record1 := makeRecord("warcinfo", "<urn:uuid:zstd-isolated-solid-1>", []byte("ABC"))
+	record2 := makeRecord("response", "<urn:uuid:zstd-isolated-solid-2>", []byte("DEFG"))
 	frame := zstdFrame(t, append(append([]byte{}, record1...), record2...))
 
+	reportedScanner, err := NewScanner(bytes.NewReader(frame), ScannerOptions{
+		Compression:                 CompressionZstd,
+		RequireZstdFrameContentSize: true,
+		RequireZstdFrameChecksum:    true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeTest(t, reportedScanner)
+	reportedRefs := collectScannerRefs(t, reportedScanner)
+	if len(reportedRefs) != 2 {
+		t.Fatalf("records = %d, want 2", len(reportedRefs))
+	}
+	for _, ref := range reportedRefs {
+		assertIssue(t, ref, IssueFrameContainsMultipleRecords)
+	}
+
 	scanner, err := NewScanner(bytes.NewReader(frame), ScannerOptions{
-		Compression: CompressionZstd,
-		Strict:      true,
+		Compression:                CompressionZstd,
+		RequireZstdRecordIsolation: true,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if scanner.Next() {
-		t.Fatal("unexpected strict record from zstd frame containing multiple records")
+		t.Fatal("unexpected record from zstd frame containing multiple records")
 	}
 	if !errors.Is(scanner.Err(), ErrInvalidWARCZstd) {
 		t.Fatalf("Err() = %v, want %v", scanner.Err(), ErrInvalidWARCZstd)
@@ -247,18 +264,18 @@ func TestZstdDictionaryBackedFrameWithoutFCS(t *testing.T) {
 	assertIssue(t, ref, IssueZstdFrameMissingContentSize)
 	assertZstdOpenBlock(t, ref, block)
 
-	strictScanner, err := NewScanner(bytes.NewReader(stream), ScannerOptions{
-		Compression: CompressionZstd,
-		Strict:      true,
+	requiredScanner, err := NewScanner(bytes.NewReader(stream), ScannerOptions{
+		Compression:                 CompressionZstd,
+		RequireZstdFrameContentSize: true,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strictScanner.Next() {
-		t.Fatal("unexpected strict record from dictionary-backed frame missing FCS")
+	if requiredScanner.Next() {
+		t.Fatal("unexpected record from dictionary-backed frame missing FCS")
 	}
-	if !errors.Is(strictScanner.Err(), ErrInvalidWARCZstd) {
-		t.Fatalf("strict Err() = %v, want %v", strictScanner.Err(), ErrInvalidWARCZstd)
+	if !errors.Is(requiredScanner.Err(), ErrInvalidWARCZstd) {
+		t.Fatalf("Err() = %v, want %v", requiredScanner.Err(), ErrInvalidWARCZstd)
 	}
 }
 
@@ -371,13 +388,13 @@ func TestZstdFrameWithoutFCSStreamsWhenBufferDisabled(t *testing.T) {
 	}
 }
 
-func TestZstdStrictNextRecordRejectsMissingFCS(t *testing.T) {
-	record := makeRecord("response", "<urn:uuid:zstd-strict-next-block-no-fcs>", []byte("block"))
+func TestZstdContentSizeRequirementRejectsNextRecord(t *testing.T) {
+	record := makeRecord("response", "<urn:uuid:zstd-required-next-block-no-fcs>", []byte("block"))
 	frame := zstdFrameWithoutFCS(t, record)
 
 	scanner, err := NewScanner(bytes.NewReader(frame), ScannerOptions{
-		Compression: CompressionZstd,
-		Strict:      true,
+		Compression:                 CompressionZstd,
+		RequireZstdFrameContentSize: true,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -388,29 +405,43 @@ func TestZstdStrictNextRecordRejectsMissingFCS(t *testing.T) {
 	}
 }
 
-func TestZstdStrictRequiresFrameContentSizeAndChecksum(t *testing.T) {
-	block := []byte("strict-zstd-frame-fields")
-	record := makeRecord("response", "<urn:uuid:zstd-strict-frame-fields>", block)
+func TestZstdFrameRequirementsAreIndependent(t *testing.T) {
+	block := []byte("required-zstd-frame-fields")
+	record := makeRecord("response", "<urn:uuid:zstd-required-frame-fields>", block)
 
 	tests := []struct {
 		name      string
 		frame     []byte
 		wantIssue IssueCode
+		require   ScannerOptions
+		unrelated ScannerOptions
 	}{
 		{
 			name:      "missing frame content size",
 			frame:     zstdFrameWithoutFCS(t, record),
 			wantIssue: IssueZstdFrameMissingContentSize,
+			require: ScannerOptions{
+				RequireZstdFrameContentSize: true,
+			},
+			unrelated: ScannerOptions{
+				RequireZstdFrameChecksum: true,
+			},
 		},
 		{
 			name:      "missing content checksum",
 			frame:     zstdFrameWithoutChecksum(t, record),
 			wantIssue: IssueZstdFrameMissingChecksum,
+			require: ScannerOptions{
+				RequireZstdFrameChecksum: true,
+			},
+			unrelated: ScannerOptions{
+				RequireZstdFrameContentSize: true,
+			},
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name+"/non-strict", func(t *testing.T) {
+		t.Run(tt.name+"/reported", func(t *testing.T) {
 			refs := scanZstdSource(t, tt.frame)
 			if len(refs) != 1 {
 				t.Fatalf("expected 1 record, got %d", len(refs))
@@ -421,16 +452,32 @@ func TestZstdStrictRequiresFrameContentSizeAndChecksum(t *testing.T) {
 			assertZstdOpenBlock(t, refs[0], block)
 		})
 
-		t.Run(tt.name+"/strict", func(t *testing.T) {
-			scanner, err := NewScanner(bytes.NewReader(tt.frame), ScannerOptions{
-				Compression: CompressionZstd,
-				Strict:      true,
-			})
+		t.Run(tt.name+"/unrelated-requirement", func(t *testing.T) {
+			opts := tt.unrelated
+			opts.Compression = CompressionZstd
+			scanner, err := NewScannerFromSource(newBytesSource(tt.frame), opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer closeTest(t, scanner)
+			refs := collectScannerRefs(t, scanner)
+			if len(refs) != 1 {
+				t.Fatalf("records = %d, want 1", len(refs))
+			}
+			if !hasIssue(refs[0], tt.wantIssue) {
+				t.Fatalf("issues = %+v, want reported issue %v", refs[0].issues, tt.wantIssue)
+			}
+		})
+
+		t.Run(tt.name+"/required", func(t *testing.T) {
+			opts := tt.require
+			opts.Compression = CompressionZstd
+			scanner, err := NewScanner(bytes.NewReader(tt.frame), opts)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if scanner.Next() {
-				t.Fatal("unexpected strict record from WARC-zstd frame missing required fields")
+				t.Fatal("unexpected record from WARC-zstd frame missing a required field")
 			}
 			if !errors.Is(scanner.Err(), ErrInvalidWARCZstd) {
 				t.Fatalf("Err() = %v, want %v", scanner.Err(), ErrInvalidWARCZstd)

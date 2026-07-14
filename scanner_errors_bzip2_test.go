@@ -39,9 +39,9 @@ func TestScannerContentLengthSemantics(t *testing.T) {
 		},
 	}
 
-	for _, strict := range []bool{false, true} {
+	for _, requireTrailer := range []bool{false, true} {
 		for _, tt := range tests {
-			t.Run(fmt.Sprintf("strict=%t/%s", strict, tt.name), func(t *testing.T) {
+			t.Run(fmt.Sprintf("require-trailer=%t/%s", requireTrailer, tt.name), func(t *testing.T) {
 				data := []byte(
 					"WARC/1.1\r\n" +
 						"WARC-Type: resource\r\n" +
@@ -51,8 +51,8 @@ func TestScannerContentLengthSemantics(t *testing.T) {
 						"\r\n\r\n",
 				)
 				scanner, err := NewScanner(bytes.NewReader(data), ScannerOptions{
-					Compression: CompressionPlain,
-					Strict:      strict,
+					Compression:          CompressionPlain,
+					RequireRecordTrailer: requireTrailer,
 				})
 				if err != nil {
 					t.Fatal(err)
@@ -84,64 +84,64 @@ func TestScannerContentLengthSemantics(t *testing.T) {
 	}
 }
 
-func TestScannerRecordTrailerStrictness(t *testing.T) {
+func TestScannerRecordTrailerRequirement(t *testing.T) {
 	tests := []struct {
 		name        string
 		suffix      string
-		strict      bool
+		require     bool
 		wantRecord  bool
 		wantErr     error
 		wantIssue   bool
 		wantTrailer int64
 	}{
 		{
-			name:        "valid non-strict",
+			name:        "valid optional",
 			suffix:      "\r\n\r\n",
 			wantRecord:  true,
 			wantTrailer: 4,
 		},
 		{
-			name:        "valid strict",
+			name:        "valid required",
 			suffix:      "\r\n\r\n",
-			strict:      true,
+			require:     true,
 			wantRecord:  true,
 			wantTrailer: 4,
 		},
 		{
-			name:        "missing non-strict",
+			name:        "missing optional",
 			wantRecord:  true,
 			wantIssue:   true,
 			wantTrailer: 0,
 		},
 		{
-			name:    "missing strict",
-			strict:  true,
+			name:    "missing required",
+			require: true,
 			wantErr: ErrMissingRecordTrailer,
 		},
 		{
-			name:        "partial non-strict",
+			name:        "partial optional",
 			suffix:      "\r\n",
 			wantRecord:  true,
 			wantIssue:   true,
 			wantTrailer: 2,
 		},
 		{
-			name:    "partial strict",
+			name:    "partial required",
 			suffix:  "\r\n",
-			strict:  true,
+			require: true,
 			wantErr: ErrMissingRecordTrailer,
 		},
 		{
-			name:        "invalid non-strict",
+			name:        "invalid optional",
 			suffix:      "BAD!",
 			wantRecord:  true,
 			wantIssue:   true,
 			wantTrailer: 4,
 		},
 		{
-			name:    "invalid strict",
+			name:    "invalid required",
 			suffix:  "BAD!",
-			strict:  true,
+			require: true,
 			wantErr: ErrMissingRecordTrailer,
 		},
 	}
@@ -158,8 +158,8 @@ func TestScannerRecordTrailerStrictness(t *testing.T) {
 					tt.suffix,
 			)
 			scanner, err := NewScanner(bytes.NewReader(data), ScannerOptions{
-				Compression: CompressionPlain,
-				Strict:      tt.strict,
+				Compression:          CompressionPlain,
+				RequireRecordTrailer: tt.require,
 			})
 			if err != nil {
 				t.Fatal(err)

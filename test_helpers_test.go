@@ -12,6 +12,16 @@ func newBytesSource(data []byte) ReaderAtSource {
 	})
 }
 
+func requireAllValidation(compression Compression) ScannerOptions {
+	return ScannerOptions{
+		Compression:                 compression,
+		RequireRecordTrailer:        true,
+		RequireZstdFrameContentSize: true,
+		RequireZstdFrameChecksum:    true,
+		RequireZstdRecordIsolation:  true,
+	}
+}
+
 func newResolvedTestRef(source RandomAccessSource, compression Compression, access AccessMode, compressed []Range, decoded Range) *RecordRef {
 	ref := &RecordRef{
 		decode: newRecordDecodeContext(source, compression, nil),

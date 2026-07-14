@@ -26,9 +26,9 @@ that `go test ./...` can run them by default.
   interrupted or damaged gowarc outputs preserved as negative regression
   samples from `/Users/xingran.guo/git/mistral/gowarc`, commit
   `2767bf171a0b8d1becd42660a8d52e151a682d28`.
-- `zeno/zeno-fcs-missing.warc.zst`: small Zeno zstd WARC that scans in
-  non-strict mode but is rejected by strict WARC-zstd validation because some
-  frames lack `Frame_Content_Size`; copied from
+- `zeno/zeno-fcs-missing.warc.zst`: small Zeno zstd WARC that scans with the
+  default policies but is rejected when `RequireZstdFrameContentSize` is set
+  because some frames lack `Frame_Content_Size`; copied from
   `/Users/xingran.guo/git/mistral/Zeno/docs/warc-mcdx-test-data` at commit
   `f63f4678cb4fcd1f273518707e86ca961446919f`.
 - `zeno/zeno-small.warc.gz`: small finalized Zeno gzip WARC copied from

@@ -339,10 +339,7 @@ func writeRealSeekVariant(gzipPath, outPath string, blockChunkSize int64, httpSp
 		err = errors.Join(err, in.Close())
 	}()
 
-	scanner, err := NewScanner(in, ScannerOptions{
-		Compression: CompressionUnknown,
-		Strict:      true,
-	})
+	scanner, err := NewScanner(in, requireAllValidation(CompressionUnknown))
 	if err != nil {
 		return seekVariantStats{}, err
 	}

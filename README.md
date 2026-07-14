@@ -49,32 +49,35 @@ This package follows the WARC grammar's hierarchy:
 Record headers and `application/warc-fields` blocks therefore share named-field
 syntax, but they are not the same structure.
 
-## Strict Mode
+## Validation Policies
 
-`ScannerOptions.Strict` makes malformed record trailers fatal. For WARC-zstd it
-also enforces the format requirements that each zstd frame must include
-`Frame_Content_Size` and `Content_Checksum`, and that a single zstd frame must
-not contain multiple WARC records.
+Recoverable format problems are reported through `RecordRef.Issues()` by
+default. Applications can independently make specific conditions fatal with:
 
-Non-strict scans keep parsing when possible and expose diagnostics through
-`RecordRef.Issues()`. In non-strict mode, zstd frames without
+- `RequireRecordTrailer`
+- `RequireZstdFrameContentSize`
+- `RequireZstdFrameChecksum`
+- `RequireZstdRecordIsolation`
+
+The zstd record-isolation option rejects a frame that contributes bytes to more
+than one WARC record. It still permits one record to span multiple frames.
+
+Without the corresponding requirement, zstd frames without
 `Frame_Content_Size` are decoded as streams and can still be lazy-opened after
 finalization when their compressed range is known and the record covers the
 whole frame.
 
-Non-strict mode also accepts practical, non-conforming layouts such as a solid
-gzip member or a zstd frame containing bytes from multiple WARC records. These
-layouts receive diagnostics. With a random-access source, reopening starts at
-the containing compression-unit boundary and discards decoded bytes before the
-requested record; without one, the records remain available through sequential
-streaming with `AccessStreamOnly`.
+The default policies also accept practical, non-conforming layouts such as a
+solid gzip member or a zstd frame containing bytes from multiple WARC records.
+These layouts receive diagnostics. With a random-access source, reopening
+starts at the containing compression-unit boundary and discards decoded bytes
+before the requested record; without one, the records remain available through
+sequential streaming with `AccessStreamOnly`.
 
 WARC version lines, header CRLF framing, and named-field syntax are always
-parsed strictly. `ScannerOptions.Strict` controls whether malformed record
-trailers and compression-layout violations are fatal rather than diagnostic.
-Set `ScannerOptions.Resynchronize` to permit extra complete CRLF lines at record
-boundaries. It is disabled by default and never skips arbitrary bytes or
-relaxes parsing inside a record header.
+parsed strictly. Set `ScannerOptions.Resynchronize` to permit extra complete
+CRLF lines at record boundaries. It is disabled by default and never skips
+arbitrary bytes or relaxes parsing inside a record header.
 
 ## Folded WARC Named Fields
 
@@ -131,8 +134,8 @@ compressed member is decompressed once. It works with both `NewScanner` and
 ```go
 source := unwarc.NewFileSource("crawl.warc.gz")
 scanner, err := unwarc.NewScannerFromSource(source, unwarc.ScannerOptions{
-	Compression: unwarc.CompressionUnknown,
-	Strict:      true,
+	Compression:          unwarc.CompressionUnknown,
+	RequireRecordTrailer: true,
 })
 if err != nil {
 	return err
@@ -201,8 +204,11 @@ indexed input provides them.
 ```go
 source := unwarc.NewFileSource("crawl.warc.zst")
 scanner, err := unwarc.NewScannerFromSource(source, unwarc.ScannerOptions{
-	Compression: unwarc.CompressionUnknown,
-	Strict:      true,
+	Compression:                 unwarc.CompressionUnknown,
+	RequireRecordTrailer:        true,
+	RequireZstdFrameContentSize: true,
+	RequireZstdFrameChecksum:    true,
+	RequireZstdRecordIsolation:  true,
 })
 if err != nil {
 	return err
@@ -246,8 +252,8 @@ Use `NextRecord` instead when the main goal is one-pass gzip processing.
 ```go
 source := unwarc.NewFileSource("crawl.warc.gz")
 scanner, err := unwarc.NewScannerFromSource(source, unwarc.ScannerOptions{
-	Compression: unwarc.CompressionUnknown,
-	Strict:      true,
+	Compression:          unwarc.CompressionUnknown,
+	RequireRecordTrailer: true,
 })
 if err != nil {
 	return err
@@ -307,8 +313,8 @@ default:
 
 If downstream work must commit only after the entire file validates, write
 worker results to a staging area and publish them after `scanner.Err()` returns
-nil. In strict mode, a later scan error can otherwise leave earlier records
-already processed.
+nil. When validation requirements are enabled, a later scan error can otherwise
+leave earlier records already processed.
 
 ## WARC-zstd Seek Index
 
@@ -425,8 +431,8 @@ if err != nil {
 defer f.Close()
 
 scanner, err := unwarc.NewScanner(f, unwarc.ScannerOptions{
-	Compression: unwarc.CompressionUnknown,
-	Strict:      true,
+	Compression:          unwarc.CompressionUnknown,
+	RequireRecordTrailer: true,
 })
 if err != nil {
 	return err
@@ -485,8 +491,8 @@ make fuzz-smoke
 
 Small real-world fixtures live under `testdata/corpus` and cover Common Crawl,
 gowarc, and Zeno outputs, including damaged `.open` files and a Zeno WARC-zstd
-sample that non-strict mode can scan but strict mode rejects for missing frame
-content size.
+sample that the default policies can scan but `RequireZstdFrameContentSize`
+rejects.
 
 Large local corpora can be scanned without checking them into the repository:
 
