@@ -75,6 +75,13 @@ jobs:
             mingw-w64-ucrt-x86_64-zlib
             mingw-w64-ucrt-x86_64-zstd
 
+      - name: Configure Windows native environment
+        if: matrix.native && runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "PKG_CONFIG=pkgconf" >> "$GITHUB_ENV"
+          pkgconf --version
+
       - name: Install Linux native libraries
         if: matrix.native && runner.os == 'Linux'
         run: |
