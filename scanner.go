@@ -113,7 +113,7 @@ func NewScannerFromSource(source RandomAccessSource, opts ScannerOptions) (*Scan
 	}, nil
 }
 
-const defaultMaxBufferedZstdFrameSize int64 = 16 << 20
+const defaultMaxBufferedZstdFrameSize int64 = 16 << 20 // 16 MiB
 
 func (o ScannerOptions) maxBufferedZstdFrameSize() int64 {
 	if o.MaxBufferedZstdFrameSize < 0 {
