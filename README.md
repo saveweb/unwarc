@@ -23,8 +23,9 @@ should still be treated as evolving until a first tagged release.
 xz, bzip2, and LZ4 WARC files are generally compressed as one
 whole file; I have not found real-world per-record usage comparable to gzip
 or WARC-zstd.
-Clients can decompress such inputs themselves and pass the resulting
-`io.Reader` to `NewScanner`:
+For those whole-file envelopes, use `github.com/saveweb/warcsource` or another
+outer-layer decoder, then pass the resulting uncompressed WARC stream to
+`NewScanner`:
 
 ```go
 scanner, err := unwarc.NewScanner(decompressedReader, unwarc.ScannerOptions{
