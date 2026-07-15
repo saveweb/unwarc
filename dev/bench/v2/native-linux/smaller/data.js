@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784073060456,
+  "lastUpdate": 1784074691066,
   "repoUrl": "https://github.com/saveweb/unwarc",
   "entries": {
     "unwarc corpus benchmark native linux latency and allocations": [
@@ -882,6 +882,300 @@ window.BENCHMARK_DATA = {
             "value": 637980,
             "unit": "ns/op",
             "extra": "median of 7 runs; min=630796; max=676803"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yzqzss@saveweb.org",
+            "name": "yzqzss",
+            "username": "yzqzss"
+          },
+          "committer": {
+            "email": "yzqzss@saveweb.org",
+            "name": "yzqzss",
+            "username": "yzqzss"
+          },
+          "distinct": true,
+          "id": "ef64ddc4e44b3b8bf654328a1a24e7e0cd04c3da",
+          "message": "Add recommended default scanner options",
+          "timestamp": "2026-07-15T02:15:30+02:00",
+          "tree_id": "c8bfa504d56e5892027fe81b0032fa5a355e2fe5",
+          "url": "https://github.com/saveweb/unwarc/commit/ef64ddc4e44b3b8bf654328a1a24e7e0cd04c3da"
+        },
+        "date": 1784074690164,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - B/op",
+            "value": 154840,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=154839; max=154840"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 1337,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=1337; max=1337"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 613142,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=605421; max=618154"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - B/op",
+            "value": 24593,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=24593; max=24593"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - allocs/op",
+            "value": 1265,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=1265; max=1265"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/source_stream_block - ns/op",
+            "value": 443659,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=441702; max=451447"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - B/op",
+            "value": 24505,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=24505; max=24505"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - allocs/op",
+            "value": 1263,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=1263; max=1263"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_record_per_member/stream_block - ns/op",
+            "value": 447137,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=441801; max=459809"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - B/op",
+            "value": 499871,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=499871; max=499871"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 3985,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=3985; max=3985"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 1091104,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=1.089005e+06; max=1.096259e+06"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - B/op",
+            "value": 63914,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=63914; max=63914"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - allocs/op",
+            "value": 3715,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=3715; max=3715"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/source_stream_block - ns/op",
+            "value": 790483,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=783652; max=799475"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - B/op",
+            "value": 63378,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=63378; max=63378"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - allocs/op",
+            "value": 3699,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=3699; max=3699"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/gzip_solid_member/stream_block - ns/op",
+            "value": 789992,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=787084; max=809700"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - B/op",
+            "value": 1218038,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=1.218037e+06; max=1.218043e+06"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 204,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=204; max=205"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 252423,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=249979; max=258136"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - B/op",
+            "value": 1051113,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=1.051112e+06; max=1.051113e+06"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - allocs/op",
+            "value": 154,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=154; max=154"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/source_stream_block - ns/op",
+            "value": 191835,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=191239; max=193119"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - B/op",
+            "value": 1051096,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=1.051096e+06; max=1.051096e+06"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - allocs/op",
+            "value": 153,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=153; max=153"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_dictionary/stream_block - ns/op",
+            "value": 193917,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=191995; max=197370"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - B/op",
+            "value": 177346,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=177345; max=177346"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 293,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=293; max=293"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 131977,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=128403; max=132388"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - B/op",
+            "value": 114349,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=114349; max=114349"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - allocs/op",
+            "value": 185,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=185; max=185"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/source_stream_block - ns/op",
+            "value": 56952,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=56467; max=58684"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - B/op",
+            "value": 114245,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=114245; max=114245"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - allocs/op",
+            "value": 182,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=182; max=182"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_record_per_frame/stream_block - ns/op",
+            "value": 58018,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=57074; max=58121"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - B/op",
+            "value": 48771641,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=4.8771641e+07; max=4.8771643e+07"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - allocs/op",
+            "value": 1637,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=1637; max=1637"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_scan_then_lazy_reopen_block - ns/op",
+            "value": 3167785,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=3.078851e+06; max=3.248468e+06"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - B/op",
+            "value": 10136270,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=1.013627e+07; max=1.0136294e+07"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - allocs/op",
+            "value": 1117,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=1117; max=1117"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/source_stream_block - ns/op",
+            "value": 681324,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=677494; max=697523"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - B/op",
+            "value": 10135486,
+            "unit": "B/op",
+            "extra": "median of 7 runs; min=1.0135462e+07; max=1.0135544e+07"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - allocs/op",
+            "value": 1092,
+            "unit": "allocs/op",
+            "extra": "median of 7 runs; min=1092; max=1092"
+          },
+          {
+            "name": "BenchmarkCorpusWARC/zstd_streaming_no_fcs/stream_block - ns/op",
+            "value": 699142,
+            "unit": "ns/op",
+            "extra": "median of 7 runs; min=676503; max=757573"
           }
         ]
       }
