@@ -14,7 +14,7 @@ It is aimed at readers, validators, indexers, and extraction pipelines.
 - Block-level APIs: read the full WARC record, just the declared block, or a
   range inside the block without pretending to understand payload semantics.
 - Small, composable core: no built-in network clients or WARC writer (`saveweb/gowarc`), whole-file xz/bzip2/LZ4
-  decoders (`github.com/saveweb/decodedsource`), validator (`TODO`), content block parser (`TODO`), rewriter (`TODO`); those belong in adjacent
+  decoders (`github.com/saveweb/decodedsource`), validator (`TODO`), content block parser (`TODO`), warc rewriter (`TODO`), CDX indexer&writer&reader (`TODO`); those belong in adjacent
   layers.
 
 ## unwarc Package Terminology
