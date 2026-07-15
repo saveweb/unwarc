@@ -59,8 +59,17 @@ syntax, but they are not the same structure.
 
 ## Validation Policies
 
-Recoverable format problems are reported through `RecordRef.Issues()` by
-default. Applications can independently make specific conditions fatal with:
+Use `DefaultScannerOptions` for normal reading. It enables automatic
+compression detection and makes the common recoverable validation issues fatal:
+
+```go
+scanner, err := unwarc.NewScannerFromSource(source, unwarc.DefaultScannerOptions())
+```
+
+The `ScannerOptions{}` zero value remains a low-level, permissive mode:
+recoverable format problems are reported through `RecordRef.Issues()` instead
+of being fatal. Applications can independently make specific conditions fatal
+with:
 
 - `RequireRecordTrailer`
 - `RequireZstdFrameContentSize`
@@ -75,12 +84,12 @@ Without the corresponding requirement, zstd frames without
 finalization when their compressed range is known and the record covers the
 whole frame.
 
-The default policies also accept practical, non-conforming layouts such as a
-solid gzip member or a zstd frame containing bytes from multiple WARC records.
-These layouts receive diagnostics. With a random-access source, reopening
-starts at the containing compression-unit boundary and discards decoded bytes
-before the requested record; without one, the records remain available through
-sequential streaming with `AccessStreamOnly`.
+The zero-value policies also accept practical, non-conforming layouts such as
+a solid gzip member or a zstd frame containing bytes from multiple WARC
+records. These layouts receive diagnostics. With a random-access source,
+reopening starts at the containing compression-unit boundary and discards
+decoded bytes before the requested record; without one, the records remain
+available through sequential streaming with `AccessStreamOnly`.
 
 WARC version lines, header CRLF framing, and named-field syntax are always
 parsed strictly. Set `ScannerOptions.Resynchronize` to permit extra complete
@@ -141,10 +150,7 @@ compressed member is decompressed once. It works with both `NewScanner` and
 
 ```go
 source := unwarc.NewFileSource("crawl.warc.gz")
-scanner, err := unwarc.NewScannerFromSource(source, unwarc.ScannerOptions{
-	Compression:          unwarc.CompressionUnknown,
-	RequireRecordTrailer: true,
-})
+scanner, err := unwarc.NewScannerFromSource(source, unwarc.DefaultScannerOptions())
 if err != nil {
 	return err
 }
@@ -217,13 +223,7 @@ an indexed input provides them.
 
 ```go
 source := unwarc.NewFileSource("crawl.warc.zst")
-scanner, err := unwarc.NewScannerFromSource(source, unwarc.ScannerOptions{
-	Compression:                 unwarc.CompressionUnknown,
-	RequireRecordTrailer:        true,
-	RequireZstdFrameContentSize: true,
-	RequireZstdFrameChecksum:    true,
-	RequireZstdRecordIsolation:  true,
-})
+scanner, err := unwarc.NewScannerFromSource(source, unwarc.DefaultScannerOptions())
 if err != nil {
 	return err
 }
@@ -272,10 +272,7 @@ Use `NextRecord` instead when the main goal is one-pass gzip processing.
 
 ```go
 source := unwarc.NewFileSource("crawl.warc.gz")
-scanner, err := unwarc.NewScannerFromSource(source, unwarc.ScannerOptions{
-	Compression:          unwarc.CompressionUnknown,
-	RequireRecordTrailer: true,
-})
+scanner, err := unwarc.NewScannerFromSource(source, unwarc.DefaultScannerOptions())
 if err != nil {
 	return err
 }
@@ -450,10 +447,7 @@ if err != nil {
 }
 defer f.Close()
 
-scanner, err := unwarc.NewScanner(f, unwarc.ScannerOptions{
-	Compression:          unwarc.CompressionUnknown,
-	RequireRecordTrailer: true,
-})
+scanner, err := unwarc.NewScanner(f, unwarc.DefaultScannerOptions())
 if err != nil {
 	return err
 }
@@ -510,8 +504,8 @@ make fuzz-smoke
 
 Small real-world fixtures live under `testdata/corpus` and cover Common Crawl,
 gowarc, and Zeno outputs, including damaged `.open` files and a Zeno WARC-zstd
-sample that the default policies can scan but `RequireZstdFrameContentSize`
-rejects.
+sample that the permissive zero-value policies can scan but
+`RequireZstdFrameContentSize` rejects.
 
 Large local corpora can be scanned without checking them into the repository:
 

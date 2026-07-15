@@ -31,4 +31,6 @@
 // CRLF lines at record boundaries. Independent ScannerOptions requirements can
 // make malformed record trailers, missing zstd Frame_Content_Size or
 // Content_Checksum fields, and zstd frames shared by multiple records fatal.
+// DefaultScannerOptions returns the recommended strict preset for normal
+// scanning.
 package unwarc

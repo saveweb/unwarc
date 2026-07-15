@@ -47,6 +47,22 @@ type ScannerOptions struct {
 	MaxBufferedZstdFrameSize int64
 }
 
+// DefaultScannerOptions returns the recommended options for normal WARC
+// scanning: automatic compression detection and strict treatment of recoverable
+// trailer and WARC-zstd layout issues.
+//
+// The ScannerOptions zero value is still accepted for low-level callers that
+// want permissive validation and explicit plain-input scanning.
+func DefaultScannerOptions() ScannerOptions {
+	return ScannerOptions{
+		Compression:                 CompressionUnknown,
+		RequireRecordTrailer:        true,
+		RequireZstdFrameContentSize: true,
+		RequireZstdFrameChecksum:    true,
+		RequireZstdRecordIsolation:  true,
+	}
+}
+
 // Scanner incrementally reads WARC records from a stream.
 type Scanner struct {
 	source RandomAccessSource
