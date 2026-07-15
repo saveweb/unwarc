@@ -1,16 +1,105 @@
 # unwarc
 
-`unwarc` is a Go library for scanning WARC files and lazily reopening records
-from random-access sources.
+`unwarc` is a Go library for reading WARC.
 
-It is aimed at readers, validators, indexers, and extraction pipelines that
-need precise record boundaries without loading entire WARC files into memory.
+It is aimed at readers, validators, indexers, and extraction pipelines.
 
-## Status
+## Highlights
 
-This repository is an internal production candidate. The core scanner paths are
-covered by unit tests, race tests, and fuzz entry points, but the public API
-should still be treated as evolving until a first tagged release.
+- Lazy random access: scan once, keep `RecordRef`s, and reopen raw records or blocks later.
+- Handles both record-aligned and non-record-aligned compression layouts: one gzip member/zstd frame per record, one compression unit containing many records, or records crossing unit boundaries.
+- Supports the WARC-zstd record-local seek-index profile proposed in `warc-specifications#118`.
+- Follow WARC terminology.
+- Customizable, Developer-friendly.
+- Block-level APIs: read the full WARC record, just the declared block, or a
+  range inside the block without pretending to understand payload semantics.
+- Small, composable core: no built-in network clients or WARC writer (`saveweb/gowarc`), whole-file xz/bzip2/LZ4
+  decoders (`github.com/saveweb/decodedsource`), validator (`TODO`), payload parser (`TODO`), rewriter (`TODO`); those belong in adjacent
+  layers.
+
+## unwarc Package Terminology
+
+`unwarc` has a few concepts that come from its scanning model rather than from
+the WARC specification itself. The short version is:
+
+```text
+Source -> Scanner -> RecordReader or finalized RecordRef -> optional lazy reopen
+```
+
+### Input and scanning
+
+- A **source** is something that can open the input bytes. `Source` only needs
+  `Open`; `RandomAccessSource` can also reopen byte ranges with `OpenRange`,
+  `OpenAt`, and `Size`. `NewFileSource` is the built-in local-file source.
+- A **scanner** is the stateful reader created by `NewScanner`,
+  `NewScannerFromSource`, or `NewScannerAt`. It discovers WARC record
+  boundaries in order.
+- `NewScanner` reads from an `io.Reader`. It is stream-only: once bytes have
+  passed, old records cannot be reopened.
+- `NewScannerFromSource` reads from a `RandomAccessSource`. It can produce
+  references that reopen records later, as long as the backing bytes stay
+  stable.
+- `NewScannerAt` starts scanning at an encoded byte offset that is already a
+  valid compression-unit boundary: plain WARC record boundary, gzip member
+  boundary, or zstd frame boundary.
+
+### Records and references
+
+- A **record reader** (`RecordReader`) is returned by `NextRecord`. It owns the
+  currently active record and streams the record block once through `Block`.
+  This is usually the simplest and fastest path for sequential processing.
+- A **record reference** (`RecordRef`) is unwarc's durable description of a
+  scanned record. It stores the parsed header, raw header bytes, content length,
+  trailer length, diagnostics, and the information needed to reopen the record
+  later when possible.
+- A reference is **finalized** when unwarc has consumed enough bytes to know the
+  record's trailer, compression-unit relationship, access mode, and reopen
+  plan. References from `Scanner.Next` are finalized before they are exposed.
+  References from `RecordReader.Ref` become finalized only after the block is
+  exhausted or the record is closed.
+- `OpenRaw` reopens the full decoded WARC record: header, block, and trailer.
+  `OpenBlock` reopens only the bytes declared by `Content-Length`.
+  `OpenBlockRange` reopens a byte range inside that block.
+
+### Offsets and access modes
+
+- **Encoded offsets** are byte offsets in the stored input file or object. For
+  `.warc.gz` and `.warc.zst`, these are compressed offsets. `OpenRange`,
+  `OpenAt`, `DecodeCost.EncodedRanges`, and `NewScannerAt` use encoded offsets.
+- **Decoded offsets** are byte offsets in the uncompressed WARC byte stream seen
+  by a scanner. `RecordLocation.Uncompressed` uses decoded offsets. These are
+  useful for describing record order and decoded layout, but they are not file
+  offsets and must not be passed to `NewScannerAt`.
+- A **compression unit** is a storage-layer unit such as a gzip member, zstd
+  frame, zstd dictionary frame, or zstd skippable frame. It is not a WARC
+  segment and is unrelated to `WARC-Segment-*`.
+- A **restart point** is the encoded offset where lazy reopening has to start.
+  For record-aligned compression it is the record's own encoded start. For
+  solid or crossed compression units it may be an earlier gzip member or zstd
+  frame, after which unwarc decodes and discards bytes until the requested
+  record or block begins.
+- `AccessExact` means the encoded ranges map exactly to the requested record.
+  `AccessFromCompressionUnitStart` means reopening starts at an earlier
+  compression-unit boundary and discards decoded bytes. `AccessStreamOnly` means
+  the record was found but cannot be reopened later. `AccessInvalid` means no
+  usable location could be resolved.
+
+### Cost, indexes, and diagnostics
+
+- A **decode cost** (`DecodeCost`) describes the work hidden behind lazy
+  reopening: which encoded ranges must be read, how many decoded bytes must be
+  discarded first, and how many decoded bytes will be returned. Use
+  `RawDecodeCost`, `BlockDecodeCost`, or `BlockRangeDecodeCost` before lazy
+  opening when you want to avoid expensive solid-compression reads.
+- A **block index** (`BlockIndex`) is optional frame-level mapping for formats
+  that carry recognized per-record block indexes. When present,
+  `OpenBlockRange` can reopen only the compressed frames overlapping the
+  requested block range.
+- **Issues** are non-fatal diagnostics attached to a finalized `RecordRef`, such
+  as a missing record trailer, a solid gzip member, or a zstd frame shared by
+  multiple WARC records. `DefaultScannerOptions` turns the common recoverable
+  validation issues into fatal errors; `ScannerOptions{}` keeps the permissive
+  low-level behavior.
 
 ## Supported Inputs
 
@@ -18,20 +107,17 @@ should still be treated as evolving until a first tagged release.
 - Record-at-a-time gzip `.warc.gz`
 - WARC-zstd `.warc.zst` / `.warc.zstd`, including prefix dictionary frames
 
-### Why Other Compression Formats Are Not Built In
+### Other Compression Formats
 
 xz, bzip2, and LZ4 WARC files are generally compressed as one
 whole file; I have not found real-world per-record usage comparable to gzip
 or WARC-zstd.
 For those whole-file envelopes, use `github.com/saveweb/decodedsource` or another
-outer-layer decoder, then pass the resulting uncompressed WARC stream to
-`NewScanner`:
+outer-layer decoder.
 
-```go
-scanner, err := unwarc.NewScanner(decompressedReader, unwarc.ScannerOptions{
-	Compression: unwarc.CompressionPlain,
-})
-```
+### Remote Sources
+
+To read WARC files from HTTP, WebDAV, S3, FTP, SMB, or other rclone-backed locations, use `github.com/saveweb/remotesource`.
 
 ## WARC Terminology
 
@@ -50,9 +136,6 @@ This package follows the WARC grammar's hierarchy:
   `OpenBlockRange` return block bytes. For an `application/http` response
   block, that includes both the HTTP header section and body.
 - The record terminator is the `CRLF CRLF` following the record block.
-- A **compression unit** is a storage-layer unit such as a gzip member, zstd
-  frame, or dictionary frame. It is unrelated to WARC logical segmentation and
-  the `WARC-Segment-*` fields.
 
 Record headers and `application/warc-fields` blocks therefore share named-field
 syntax, but they are not the same structure.
@@ -532,15 +615,13 @@ production-sized inputs.
 
 The `Benchmark` GitHub Actions workflow runs the same corpus benchmark on pull
 requests, pushes to `main`, and manual dispatch. Pure Go benchmarks run on
-Linux, macOS, and Windows. Native gzip/zstd benchmarks run on Linux and macOS,
-where zlib and libzstd are installed from apt or Homebrew; Windows currently
-tracks the pure Go backend only. Corpus benchmarks run with a fixed
-`-cpu=1`, seven samples, and a shorter per-sample benchtime to reduce hosted
-runner scheduling noise. Pushes to `main` publish benchmark history to the
-`gh-pages` branch under `dev/bench/v2/*` without alert comments; benchmark
-collection runs in parallel, while the short history-publishing step is
-serialized to avoid concurrent `gh-pages` pushes. Pull requests compare against
-the stored history and leave job summaries without updating history.
+Linux, macOS, and Windows with a fixed `-cpu=1`, seven samples, and a shorter
+per-sample benchtime to reduce hosted runner scheduling noise. Pushes to `main`
+publish benchmark history to the `gh-pages` branch under `dev/bench/v2/*`
+without alert comments; benchmark collection runs in parallel, while the short
+history-publishing step is serialized to avoid concurrent `gh-pages` pushes.
+Pull requests compare against the stored history and leave job summaries
+without updating history.
 
 This repository serves the benchmark dashboard from the `gh-pages` branch. For
 a fork or a fresh repository, initialize that branch once and configure GitHub
@@ -567,12 +648,3 @@ are the one-pass paths; the lazy reopening benchmark intentionally measures the
 cost of re-reading compressed bytes. Use `-bench
 'BenchmarkRealWARC/source_stream_block$'` or another sub-benchmark suffix to
 run one path at a time.
-
-## Production Checklist Before Tagging
-
-- Run the scanner over representative WARC corpora from the intended pipeline.
-- Promote any new corrupt or unusual files found in that pass to minimized
-  fixtures under `testdata/corpus`.
-- Decide which issue codes and access modes are part of the stable public API.
-- Tag a release only after downstream integration has exercised lazy
-  `OpenRaw`/`OpenBlock` on real files.

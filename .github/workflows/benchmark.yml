@@ -24,28 +24,12 @@ jobs:
           - os: ubuntu-latest
             backend: purego-linux
             benchmark-name: unwarc corpus benchmark purego linux
-            go-test-tags: ''
-            native: false
           - os: macos-latest
             backend: purego-macos
             benchmark-name: unwarc corpus benchmark purego macos
-            go-test-tags: ''
-            native: false
           - os: windows-latest
             backend: purego-windows
             benchmark-name: unwarc corpus benchmark purego windows
-            go-test-tags: ''
-            native: false
-          - os: ubuntu-latest
-            backend: native-linux
-            benchmark-name: unwarc corpus benchmark native linux
-            go-test-tags: unwarc_libz unwarc_libzstd
-            native: true
-          - os: macos-latest
-            backend: native-macos
-            benchmark-name: unwarc corpus benchmark native macos
-            go-test-tags: unwarc_libz unwarc_libzstd
-            native: true
     permissions:
       contents: read
     steps:
@@ -58,43 +42,17 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Install Linux native libraries
-        if: matrix.native && runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config zlib1g-dev libzstd-dev
-
-      - name: Install macOS native libraries
-        if: matrix.native && runner.os == 'macOS'
-        run: |
-          brew install pkg-config zlib zstd
-          {
-            echo "PKG_CONFIG_PATH=$(brew --prefix zlib)/lib/pkgconfig:$(brew --prefix zstd)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-          } >> "$GITHUB_ENV"
-
       - name: Run tests
         shell: bash
-        env:
-          GO_TEST_TAGS: ${{ matrix.go-test-tags }}
         run: |
           set -o pipefail
-          tag_args=()
-          if [ -n "$GO_TEST_TAGS" ]; then
-            tag_args=(-tags "$GO_TEST_TAGS")
-          fi
-          go test "${tag_args[@]}" -count=1 ./...
+          go test -count=1 ./...
 
       - name: Run corpus benchmark
         shell: bash
-        env:
-          GO_TEST_TAGS: ${{ matrix.go-test-tags }}
         run: |
           set -o pipefail
-          tag_args=()
-          if [ -n "$GO_TEST_TAGS" ]; then
-            tag_args=(-tags "$GO_TEST_TAGS")
-          fi
-          go test "${tag_args[@]}" -run '^$' -bench '^BenchmarkCorpusWARC' -benchmem -benchtime=500ms -count=7 -cpu=1 . | tee benchmark.txt
+          go test -run '^$' -bench '^BenchmarkCorpusWARC' -benchmem -benchtime=500ms -count=7 -cpu=1 . | tee benchmark.txt
 
       - name: Aggregate benchmark samples
         shell: bash
@@ -147,8 +105,8 @@ jobs:
           fail-on-alert: true
           max-items-in-chart: 200
 
-  corpus-clean-legacy-history:
-    name: Remove legacy benchmark history
+  corpus-clean-history:
+    name: Remove obsolete benchmark history
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: corpus
     runs-on: ubuntu-latest
@@ -160,12 +118,13 @@ jobs:
         with:
           ref: gh-pages
 
-      - name: Remove pre-v2 benchmark charts
+      - name: Remove obsolete benchmark charts
         shell: bash
         run: |
           for backend in purego-linux purego-macos purego-windows native-linux native-macos; do
             rm -rf "dev/bench/$backend"
           done
+          rm -rf dev/bench/v2/native-linux dev/bench/v2/native-macos
 
       - name: Publish history cleanup
         shell: bash
@@ -184,7 +143,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
       - corpus
-      - corpus-clean-legacy-history
+      - corpus-clean-history
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -197,10 +156,6 @@ jobs:
             benchmark-name: unwarc corpus benchmark purego macos
           - backend: purego-windows
             benchmark-name: unwarc corpus benchmark purego windows
-          - backend: native-linux
-            benchmark-name: unwarc corpus benchmark native linux
-          - backend: native-macos
-            benchmark-name: unwarc corpus benchmark native macos
     permissions:
       contents: write
       deployments: write
